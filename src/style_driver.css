@@ -1,0 +1,54 @@
+:root {
+  --driver-bg: #1e293b;
+  --driver-accent: #f59e0b;
+  --driver-text: #ffffff;
+}
+
+body.driver-body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: var(--driver-bg);
+  color: var(--driver-text);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+#driver-app { flex: 1; display: flex; flex-direction: column; padding: 20px; }
+
+header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+.driver-id { font-weight: 800; font-size: 1.2rem; }
+
+.trip-selector { flex: 1; display: flex; flex-direction: column; gap: 15px; }
+
+.selector-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 20px;
+  border-radius: 16px;
+  cursor: pointer;
+}
+.selector-card.active { border-color: var(--driver-accent); background: rgba(245, 158, 11, 0.1); }
+
+.big-btn {
+  height: 80px;
+  background: var(--driver-accent);
+  color: #000;
+  border: none;
+  border-radius: 20px;
+  font-size: 1.5rem;
+  font-weight: 900;
+  margin-top: 20px;
+  cursor: pointer;
+}
+
+.on-trip-view { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; }
+.live-status { font-size: 3rem; font-weight: 900; color: #10b981; animation: blink 1.5s infinite; }
+
+@keyframes blink { 
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.stop-now { background: #ef4444; color: #fff; }

@@ -1,0 +1,78 @@
+export const stops = [
+  { id: 'palais', name: 'Gare Palais', x: 20, y: 70, district: 'Plateau' },
+  { id: 'fann', name: 'Fann', x: 15, y: 55, district: 'Corniche' },
+  { id: 'grand-yoff', name: 'Grand Yoff', x: 50, y: 42, district: 'Dakar' },
+  { id: 'parcelles', name: 'Parcelles Assainies', x: 75, y: 25, district: 'Unite 15' },
+  { id: 'guediawaye', name: 'Guédiawaye', x: 85, y: 35, district: 'Terminus' },
+  { id: 'rufisque', name: 'Rufisque', x: 95, y: 80, district: 'Banlieue' },
+  { id: 'petersen', name: 'Petersen', x: 25, y: 65, district: 'Terminus center' },
+  { id: 'pikine', name: 'Pikine', x: 70, y: 60, district: 'Marché' },
+  { id: 'keur-massar', name: 'Keur Massar', x: 88, y: 70, district: 'Vilon' },
+  { id: 'ngor', name: 'Ngor', x: 10, y: 15, district: 'Almadies' },
+  { id: 'ouakam', name: 'Ouakam', x: 18, y: 30, district: 'Mamelles' },
+  { id: 'colobane', name: 'Colobane', x: 38, y: 58, district: 'Gare routiere' },
+  { id: 'liberte6', name: 'Liberté 6', x: 55, y: 40, district: 'VDN' },
+  { id: 'rebeuss', name: 'Rebeuss', x: 22, y: 75, district: 'Dakar' },
+  { id: 'republique', name: 'Rue République', x: 21, y: 68, district: 'Plateau' },
+]
+
+export const lines = [
+  {
+    id: 'AFTU-5',
+    code: '5',
+    name: 'AFTU: Guédiawaye - Palais',
+    headsign: 'Gare Palais',
+    color: '#f5b43b',
+    stopIds: ['guediawaye', 'pikine', 'colobane', 'republique', 'palais'],
+    baseMinutes: 50,
+    frequencyMin: 12,
+  },
+  {
+    id: 'AFTU-24',
+    code: '24',
+    name: 'AFTU: Fann - Guédiawaye',
+    headsign: 'Guédiawaye',
+    color: '#fb6c5b',
+    stopIds: ['fann', 'colobane', 'grand-yoff', 'pikine', 'guediawaye'],
+    baseMinutes: 55,
+    frequencyMin: 15,
+  },
+  {
+    id: 'DDD-8',
+    code: '8',
+    name: 'DDD: Aéroport - Palais',
+    headsign: 'Palais',
+    color: '#39c0a8',
+    stopIds: ['ngor', 'ouakam', 'liberte6', 'colobane', 'palais'],
+    baseMinutes: 40,
+    frequencyMin: 10,
+  },
+  {
+    id: 'DDD-15',
+    code: '15',
+    name: 'DDD: Rufisque - Palais',
+    headsign: 'Rufisque',
+    color: '#6fa8ff',
+    stopIds: ['palais', 'rebeuss', 'pikine', 'keur-massar', 'rufisque'],
+    baseMinutes: 70,
+    frequencyMin: 20,
+  },
+  {
+    id: 'AFTU-25',
+    code: '25',
+    name: 'AFTU: Parcelles - Rebeuss',
+    headsign: 'Rebeuss',
+    color: '#ff9ff3',
+    stopIds: ['parcelles', 'liberte6', 'colobane', 'rebeuss'],
+    baseMinutes: 45,
+    frequencyMin: 12,
+  }
+]
+
+export const buses = [
+  { id: 'BUS-101', lineId: 'AFTU-5', progress: 0.1, speedFactor: 1.0, capacity: 50, passengers: 25, plate: 'DK-101-AF' },
+  { id: 'BUS-102', lineId: 'AFTU-5', progress: 0.6, speedFactor: 0.9, capacity: 50, passengers: 40, plate: 'DK-102-AF' },
+  { id: 'BUS-201', lineId: 'AFTU-24', progress: 0.2, speedFactor: 1.1, capacity: 45, passengers: 15, plate: 'DK-201-AF' },
+  { id: 'BUS-301', lineId: 'DDD-8', progress: 0.3, speedFactor: 1.05, capacity: 65, passengers: 30, plate: 'DK-801-DD' },
+  { id: 'BUS-401', lineId: 'DDD-15', progress: 0.4, speedFactor: 0.95, capacity: 70, passengers: 55, plate: 'DK-151-DD' },
+]

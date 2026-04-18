@@ -1,0 +1,6 @@
+{
+  "appId": "com.sunubus.client",
+  "appName": "SunuBus",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
