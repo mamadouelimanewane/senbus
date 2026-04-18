@@ -42,10 +42,12 @@ jobs:
       - name: Build APK
         run: |
           cd android
-          # Fix possible line ending issues for Ubuntu
           sed -i 's/\r$//' gradlew
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace --info
+          
+      - name: Check APK Path
+        run: ls -R android/app/build/outputs/apk/debug/
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
