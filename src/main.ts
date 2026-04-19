@@ -40,7 +40,7 @@ const CORRIDORS = [['palais','sandaga','petersen','medina','gueule-tapee','colob
 
 const appEl = document.querySelector<HTMLDivElement>('#app')!
 const mapLayer = document.createElement('div'); mapLayer.id = 'map-layer'; mapLayer.style.cssText = 'position:absolute;inset:0;z-index:0;'; appEl.appendChild(mapLayer)
-const uiLayer = document.createElement('div'); uiLayer.id = 'ui-layer'; uiLayer.style.cssText = 'position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;'; appEl.appendChild(uiLayer)
+const uiLayer = document.createElement('div'); uiLayer.id = 'ui-layer'; uiLayer.style.cssText = 'position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;pointer-events:none;'; appEl.appendChild(uiLayer)
 
 function initMap() {
   if (leafletMap) { leafletMap.invalidateSize(); return }
@@ -99,7 +99,12 @@ function render() {
   if (isMapTab) {
     uiLayer.innerHTML = renderMapOverlay()
   } else {
-    uiLayer.innerHTML = `<div class="page" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">${renderPage()}</div>${renderTabBar()}`
+    uiLayer.innerHTML = `
+      <div class="page" style="flex:1;overflow:hidden;display:flex;flex-direction:column;pointer-events:auto;">
+        ${renderPage()}
+      </div>
+      <div style="pointer-events:auto;">${renderTabBar()}</div>
+    `
   }
   if (showIncident && selectedStopId) uiLayer.innerHTML += renderIncidentModal()
   attachListeners()
@@ -203,20 +208,28 @@ function renderPlanner() {
   return `
     <div class="search-header" style="padding-bottom:20px;">
       <div style="display:flex;flex-direction:column;gap:12px;">
-        <div class="search-input-row planner-input" id="pick-origin-container" style="height:48px;cursor:pointer;background:#fff;border-radius:12px;">
+        <div class="search-input-row" style="height:48px;background:#fff;border-radius:12px;display:flex;align-items:center;padding:0 12px;${plannerPicking==='origin'?'border:2px solid #fff;':''}">
           <div style="width:8px;height:8px;border-radius:50%;background:#3b82f6;margin-right:12px;"></div>
-          <div style="flex:1;color:var(--text);font-size:15px;">${escapeHtml(originName)}</div>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <input type="text" id="planner-origin-input" placeholder="Départ..." value="${originName==='Ma position'?'':escapeHtml(originName)}" style="flex:1;border:none;outline:none;font-size:15px;color:var(--text);" />
+          <button id="btn-pick-origin" style="background:none;border:none;padding:8px;cursor:pointer;" title="Choisir sur carte">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </button>
         </div>
-        <div class="search-input-row planner-input" id="pick-dest-container" style="height:48px;cursor:pointer;background:#fff;border-radius:12px;">
+        <div class="search-input-row" style="height:48px;background:#fff;border-radius:12px;display:flex;align-items:center;padding:0 12px;${plannerPicking==='destination'?'border:2px solid #fff;':''}">
           <div style="width:8px;height:8px;border-radius:50%;background:#ef4444;margin-right:12px;"></div>
-          <div style="flex:1;color:var(--text);font-size:15px;">${escapeHtml(destName)}</div>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <input type="text" id="planner-dest-input" placeholder="Destination..." value="${destName==='Saisir destination'?'':escapeHtml(destName)}" style="flex:1;border:none;outline:none;font-size:15px;color:var(--text);" />
+          <button id="btn-pick-dest" style="background:none;border:none;padding:8px;cursor:pointer;" title="Choisir sur carte">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </button>
         </div>
       </div>
+      <div id="planner-suggestions" style="margin-top:10px;"></div>
     </div>
     <div class="search-body">
-      ${!plannerOrigin || !plannerDestination ? `<p style="text-align:center;padding:40px;color:var(--muted);font-size:14px;">Appuyez sur un champ ci-dessus, puis choisissez un arrêt sur la carte.</p>` : `
+      ${!plannerOrigin || !plannerDestination ? `
+        <div style="text-align:center;padding:40px;color:var(--muted);font-size:14px;">
+          Entrez votre trajet ou utilisez l'icône <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> pour choisir sur la carte.
+        </div>` : `
         <div class="section-title">Itinéraires suggérés</div>
         ${journeys.map(j => `
           <div class="journey-card" style="background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow);">
@@ -286,10 +299,17 @@ function attachListeners() {
   uiLayer.querySelector('#untrack-btn')?.addEventListener('click', () => { trackedBusId = null; render() })
   uiLayer.querySelector('#cancel-picking')?.addEventListener('click', () => { plannerPicking = null; render() })
   
-  // Planner interactions
-  uiLayer.querySelector('#pick-origin-container')?.addEventListener('click', () => { plannerPicking = 'origin'; activeTab = 'map'; render() })
-  uiLayer.querySelector('#pick-dest-container')?.addEventListener('click', () => { plannerPicking = 'destination'; activeTab = 'map'; render() })
-  
+  if (activeTab === 'planner') {
+    uiLayer.querySelector('#btn-pick-origin')?.addEventListener('click', () => { plannerPicking = 'origin'; activeTab = 'map'; render() })
+    uiLayer.querySelector('#btn-pick-dest')?.addEventListener('click', () => { plannerPicking = 'destination'; activeTab = 'map'; render() })
+    
+    const oIn = uiLayer.querySelector<HTMLInputElement>('#planner-origin-input')
+    const dIn = uiLayer.querySelector<HTMLInputElement>('#planner-dest-input')
+    
+    if (oIn) oIn.addEventListener('input', () => { handlePlannerInput(oIn.value, 'origin') })
+    if (dIn) dIn.addEventListener('input', () => { handlePlannerInput(dIn.value, 'destination') })
+  }
+
   uiLayer.querySelectorAll('.btn-green-sm[data-line-id]').forEach(b => b.addEventListener('click', (e) => {
     const t = (e.currentTarget as HTMLElement).dataset; notifiedLines.push({ lineId: t.lineId!, stopId: t.stopId! }); alert(`Alerte activée pour ligne ${t.lineId}`);
   }))
@@ -304,6 +324,29 @@ function attachListeners() {
     lineFilter = (e.currentTarget as HTMLElement).dataset.filter as any; render() 
   }))
   attachSearchBodyListeners()
+}
+
+function handlePlannerInput(query: string, type: 'origin' | 'destination') {
+  const suggestionsEl = uiLayer.querySelector('#planner-suggestions')
+  if (!suggestionsEl) return
+  if (query.length < 2) { suggestionsEl.innerHTML = ''; return }
+  const results = getSearchResults(query).filter(r => r.type === 'stop')
+  suggestionsEl.innerHTML = `
+    <div style="background:#fff;border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+      ${results.map((r: any) => `
+        <div class="planner-sug-item" data-id="${r.stop.id}" style="padding:12px;border-bottom:1px solid var(--border);font-size:14px;cursor:pointer;">
+          📍 <strong>${escapeHtml(r.stop.name)}</strong> <span style="color:var(--muted);">${r.stop.district}</span>
+        </div>
+      `).join('')}
+    </div>`
+  
+  suggestionsEl.querySelectorAll('.planner-sug-item').forEach((item: any) => {
+    item.addEventListener('click', () => {
+      if (type === 'origin') plannerOrigin = item.dataset.id
+      else plannerDestination = item.dataset.id
+      render()
+    })
+  })
 }
 
 function attachSearchBodyListeners() {
