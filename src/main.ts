@@ -1,18 +1,21 @@
 import { buses, lines, stops } from './data/network'
-import { getPredictions, getSearchResults, tickBuses, formatEta, escapeHtml } from './lib/transit'
+import { getPredictions, getSearchResults, tickBuses, formatEta, escapeHtml, findJourneys, getEtaMinutes } from './lib/transit'
 import './style.css'
 
 declare const L: any
 
 // ── State ──────────────────────────────────────────────────────────────────
-type Tab = 'map' | 'search' | 'lines' | 'profile'
+type Tab = 'map' | 'search' | 'lines' | 'profile' | 'planner'
 let activeTab: Tab = 'map'
 let searchQuery = ''
 let selectedStopId: string | null = null
 let trackedBusId: string | null = null
-let notifiedStops: string[] = []
-let favorites: { type: 'line' | 'stop'; id: string }[] = []
-let searchHistory: string[] = ['Pikine', 'Grand Yoff', 'Colobane', 'Sandaga']
+let notifiedLines: { lineId: string, stopId: string }[] = []
+let plannerOrigin: string | null = null
+let plannerDestination: string | null = null
+let plannerPicking: 'origin' | 'destination' | null = null
+// let favorites: { type: 'line' | 'stop'; id: string }[] = []
+// let searchHistory: string[] = ['Pikine', 'Grand Yoff', 'Colobane', 'Sandaga']
 let lineFilter: 'all' | 'DDD' | 'AFTU-TATA' = 'all'
 let mapOperatorFilter: 'all' | 'DDD' | 'AFTU-TATA' = 'all'
 let showIncident = false
@@ -20,7 +23,7 @@ let leafletMap: any = null
 let canvasRenderer: any = null
 let busCircles: Map<string, any> = new Map()
 
-// ── Coordonnées GPS réelles de tous les arrêts ─────────────────────────────
+// ── Coordonnées GPS réelles ────────────────────────────────────────────────
 const GPS: Record<string, [number, number]> = {
   // Plateau
   'palais':           [14.6681, -17.4420],
@@ -94,7 +97,6 @@ const GPS: Record<string, [number, number]> = {
   'sebikotane':       [14.7280, -17.1320],
 }
 
-// ── 12 corridors principaux (polylignes de fond) ──────────────────────────
 const CORRIDORS = [
   ['palais','sandaga','petersen','medina','gueule-tapee','colobane','pikine','thiaroye-gare','rufisque','bargny','diamniadio','sebikotane'],
   ['palais','dakar-ponty','tilene','biscuiterie','hlm','dieuppeul','castors','liberte6','sacrecoeur','grand-yoff','patte-oie','nord-foire','parcelles','cambrene','guediawaye'],
@@ -110,7 +112,7 @@ const CORRIDORS = [
   ['thiaroye-gare','mbao','rufisque','bargny','diamniadio'],
 ]
 
-// ── Persistent DOM structure ───────────────────────────────────────────────
+// ── DOM Setup ──────────────────────────────────────────────────────────────
 const appEl = document.querySelector<HTMLDivElement>('#app')!
 const mapLayer = document.createElement('div')
 mapLayer.id = 'map-layer'
@@ -122,111 +124,76 @@ uiLayer.id = 'ui-layer'
 uiLayer.style.cssText = 'position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;'
 appEl.appendChild(uiLayer)
 
-// ── Leaflet Map ────────────────────────────────────────────────────────────
+// ── Functions ──────────────────────────────────────────────────────────────
+
 function initMap() {
   if (leafletMap) { leafletMap.invalidateSize(); return }
   if (typeof L === 'undefined') return
-
   canvasRenderer = L.canvas({ padding: 0.5 })
+  leafletMap = L.map('map-layer', { zoomControl: false, minZoom: 11, maxZoom: 18 }).setView([14.7137, -17.4300], 12)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(leafletMap)
 
-  leafletMap = L.map('map-layer', { zoomControl: false, minZoom: 11, maxZoom: 18 })
-    .setView([14.7137, -17.4300], 12)
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org">OpenStreetMap</a>',
-    maxZoom: 19,
-  }).addTo(leafletMap)
-
-  // User location dot
   const userIcon = L.divIcon({ className: '', html: '<div class="user-dot-marker"></div>', iconSize: [20,20], iconAnchor: [10,10] })
   L.marker([14.7137, -17.4300], { icon: userIcon, zIndexOffset: 2000 }).addTo(leafletMap)
 
-  // 12 corridors en fond (gris translucide)
-  CORRIDORS.forEach(corridor => {
-    const coords = corridor.map(id => GPS[id]).filter(Boolean)
+  CORRIDORS.forEach(cor => {
+    const coords = cor.map(id => GPS[id]).filter(Boolean) as [number,number][]
     if (coords.length >= 2) L.polyline(coords, { color: '#9ca3af', weight: 2, opacity: 0.4 }).addTo(leafletMap)
   })
 
-  // Stop markers (petits points)
   stops.forEach(stop => {
     const coords = GPS[stop.id]
     if (!coords) return
-    const icon = L.divIcon({ className: '', html: '<div class="stop-marker"></div>', iconSize: [9,9], iconAnchor:[4.5,4.5] })
-    L.marker(coords, { icon, zIndexOffset: 500 })
-      .on('click', () => { selectedStopId = stop.id; trackedBusId = null; render() })
-      .addTo(leafletMap)
+    const icon = L.divIcon({ className:'', html:'<div class="stop-marker"></div>', iconSize:[9,9], iconAnchor:[4.5,4.5] })
+    L.marker(coords, { icon, zIndexOffset: 500 }).on('click', () => {
+      if (plannerPicking === 'origin') {
+        plannerOrigin = stop.id; plannerPicking = null; activeTab = 'planner'
+      } else if (plannerPicking === 'destination') {
+        plannerDestination = stop.id; plannerPicking = null; activeTab = 'planner'
+      } else {
+        selectedStopId = stop.id; trackedBusId = null
+      }
+      render()
+    }).addTo(leafletMap)
   })
 }
 
-// ── Bus markers (Canvas circleMarker pour performance) ───────────────────
 function updateBusMarkers() {
-  if (!leafletMap || typeof L === 'undefined') return
-
+  if (!leafletMap) return
   buses.forEach(bus => {
     const line = lines.find(l => l.id === bus.lineId)
     if (!line) return
     if (mapOperatorFilter !== 'all' && line.operatorId !== mapOperatorFilter) {
-      // Cacher si filtre actif
-      const existing = busCircles.get(bus.id)
-      if (existing) { existing.setStyle({ opacity: 0, fillOpacity: 0 }) }
-      return
+      const existing = busCircles.get(bus.id); if (existing) existing.setStyle({ opacity:0, fillOpacity:0 }); return
     }
-
     const coords = line.stopIds.map(id => GPS[id]).filter(Boolean) as [number,number][]
     if (coords.length < 2) return
-
     const totalSegs = coords.length - 1
     const scaled = bus.progress * totalSegs
     const seg = Math.min(Math.floor(scaled), totalSegs - 1)
     const t = scaled - seg
-    const from = coords[seg]
-    const to = coords[Math.min(seg + 1, coords.length - 1)]
+    const from = coords[seg], to = coords[seg + 1]
     const lat = from[0] + (to[0] - from[0]) * t
     const lng = from[1] + (to[1] - from[1]) * t
 
-    const isDDD = line.operatorId === 'DDD'
     const isTracked = bus.id === trackedBusId
-    const radius = isDDD ? (isTracked ? 9 : 6) : (isTracked ? 7 : 4)
+    const radius = line.operatorId === 'DDD' ? (isTracked ? 9 : 6) : (isTracked ? 7 : 4)
     const color = isTracked ? '#fbbf24' : line.color
-    const weight = isTracked ? 3 : 1.5
 
     if (busCircles.has(bus.id)) {
       const circle = busCircles.get(bus.id)!
-      circle.setLatLng([lat, lng])
-      circle.setStyle({ radius, fillColor: color, color: isTracked ? '#f59e0b' : '#fff', weight, opacity:1, fillOpacity:1 })
+      circle.setLatLng([lat, lng]).setStyle({ radius, fillColor: color, color: isTracked ? '#f59e0b' : '#fff', weight: isTracked ? 3 : 1.5, opacity: 1, fillOpacity: 1 })
     } else {
-      const circle = L.circleMarker([lat, lng], {
-        renderer: canvasRenderer,
-        radius,
-        fillColor: color,
-        fillOpacity: 1,
-        color: isTracked ? '#f59e0b' : '#fff',
-        weight,
-      })
-      circle.on('click', () => {
-        trackedBusId = bus.id
-        selectedStopId = null
-        if (leafletMap) leafletMap.panTo([lat, lng], { animate: true })
-        render()
-      })
-      circle.addTo(leafletMap)
-      busCircles.set(bus.id, circle)
+      const circle = L.circleMarker([lat, lng], { renderer: canvasRenderer, radius, fillColor: color, fillOpacity: 1, color: isTracked ? '#f59e0b' : '#fff', weight: isTracked ? 3 : 1.5 })
+      circle.on('click', () => { trackedBusId = bus.id; selectedStopId = null; if (leafletMap) leafletMap.panTo([lat, lng], { animate: true }); render() })
+      circle.addTo(leafletMap); busCircles.set(bus.id, circle)
     }
   })
 }
 
-// ── Fleet stats ────────────────────────────────────────────────────────────
-function getFleetStats() {
-  const dddCount = buses.filter(b => lines.find(l=> l.id===b.lineId)?.operatorId === 'DDD').length
-  const aftuCount = buses.length - dddCount
-  return { dddCount, aftuCount }
-}
-
-// ── RENDER ─────────────────────────────────────────────────────────────────
 function render() {
   const isMapTab = activeTab === 'map'
   mapLayer.style.display = 'block'
-
   if (isMapTab) {
     uiLayer.innerHTML = renderMapOverlay()
   } else {
@@ -237,45 +204,35 @@ function render() {
       ${renderTabBar()}
     `
   }
-
   if (showIncident && selectedStopId) uiLayer.innerHTML += renderIncidentModal()
   attachListeners()
   if (isMapTab) setTimeout(() => { initMap(); updateBusMarkers() }, 50)
 }
 
-// ── Map Overlay ────────────────────────────────────────────────────────────
 function renderMapOverlay() {
   const stop = selectedStopId ? stops.find(s => s.id === selectedStopId) : null
   const tracked = trackedBusId ? buses.find(b => b.id === trackedBusId) : null
-  const { dddCount, aftuCount } = getFleetStats()
+  const dddCount = buses.filter(b => lines.find(l=>l.id===b.lineId)?.operatorId==='DDD').length
+  const aftuCount = buses.length - dddCount
 
   return `
     <div class="map-overlay" style="flex:1;display:flex;flex-direction:column;pointer-events:none;">
-      <!-- Barre supérieure : filtre opérateur + stats flotte -->
       <div style="padding:44px 12px 0;display:flex;gap:8px;align-items:flex-start;pointer-events:none;">
-        <!-- Filtre opérateur -->
         <div style="display:flex;gap:6px;pointer-events:auto;">
           ${['all','DDD','AFTU-TATA'].map(f => `
             <button class="op-filter-btn ${mapOperatorFilter===f?'active':''}" data-op="${f}"
               style="padding:6px 12px;border-radius:20px;border:none;font-size:12px;font-weight:700;
               background:${mapOperatorFilter===f ? (f==='DDD'?'#1565c0':f==='AFTU-TATA'?'#e65100':'#3aaa60') : 'rgba(255,255,255,0.92)'};
-              color:${mapOperatorFilter===f?'#fff':'#333'};cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);">
+              color:${mapOperatorFilter===f?'#fff':'#333'};">
               ${f==='all'?'Tous':f}
             </button>`).join('')}
         </div>
-        <!-- Mini panel flotte -->
         <div style="pointer-events:auto;margin-left:auto;display:flex;flex-direction:column;gap:6px;">
-          <div class="fleet-pill" style="background:rgba(21,101,192,0.92);">
-            <strong>DDD</strong> · ${dddCount} bus · 150 lignes
-          </div>
-          <div class="fleet-pill" style="background:rgba(230,81,0,0.92);">
-            <strong>AFTU-TATA</strong> · ${aftuCount} car rap. · 200 lignes
-          </div>
+          <div class="fleet-pill" style="background:rgba(21,101,192,0.92);"><strong>DDD</strong> · ${dddCount} bus</div>
+          <div class="fleet-pill" style="background:rgba(230,81,0,0.92);"><strong>AFTU</strong> · ${aftuCount} cars</div>
         </div>
       </div>
-
       <div style="flex:1;"></div>
-
       ${tracked ? renderBusTrackingSheet(tracked) : stop ? renderStopSheet(stop) : renderMapBottomBar()}
     </div>
     ${renderTabBar()}
@@ -284,456 +241,175 @@ function renderMapOverlay() {
 
 function renderMapBottomBar() {
   return `
-    <div class="map-bottom-bar" style="pointer-events:auto;">
-      <button class="search-pill" id="go-search">
-        <div class="search-pill-left">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-          </svg>
-          <span>On va où ?</span>
-        </div>
-        <div class="search-pill-right">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-            <polyline points="9 22 9 12 15 12 15 22"/>
-          </svg>
-        </div>
+    <div class="map-bottom-bar" style="pointer-events:auto;display:flex;gap:10px;">
+      <button class="search-pill" id="go-search" style="flex:1;">
+        <div class="search-pill-left"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><span>Recherche</span></div>
       </button>
-    </div>
-  `
+      <button class="search-pill" id="go-planner" style="flex:1;background:var(--white);box-shadow:var(--shadow);">
+        <div class="search-pill-left" style="color:var(--text);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg><span style="color:var(--text);">Itinéraire</span></div>
+      </button>
+    </div>`
 }
 
-function renderBusTrackingSheet(bus: typeof buses[0]) {
-  const line = lines.find(l => l.id === bus.lineId)
-  if (!line) return ''
-  const fromName = stops.find(s => s.id === line.stopIds[0])?.name ?? ''
-  const toName = stops.find(s => s.id === line.stopIds[line.stopIds.length - 1])?.name ?? ''
-  const pct = Math.round(bus.progress * 100)
-  const isDDD = line.operatorId === 'DDD'
-  const speed = bus.speedFactor >= 1.05 ? '🟢 Rapide' : bus.speedFactor >= 0.90 ? '🟡 Normal' : '🔴 Lent'
+function renderBusTrackingSheet(bus: any) {
+  const line = lines.find(l => l.id === bus.lineId)!
   return `
-    <div class="stop-sheet" style="pointer-events:auto;position:relative;">
-      <div class="sheet-handle"></div>
-      <button class="sheet-close" id="close-sheet">✕</button>
-      <!-- Badge opérateur -->
+    <div class="stop-sheet" style="pointer-events:auto;">
+      <div class="sheet-handle"></div><button class="sheet-close" id="close-sheet">✕</button>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-        <div style="background:${line.color};color:#fff;padding:6px 14px;border-radius:10px;font-weight:800;font-size:16px;">${line.code}</div>
-        <div>
-          <div class="stop-sheet-title">🚌 ${bus.id}</div>
-          <div class="stop-sheet-sub">${isDDD ? 'DakarDemDikk' : 'AFTU-TATA Car Rapide'} · ${bus.plate}</div>
-        </div>
+        <div style="background:${line.color};color:#fff;padding:6px 14px;border-radius:10px;font-weight:800;">${line.code}</div>
+        <div><div class="stop-sheet-title">🚌 ${bus.id}</div><div class="stop-sheet-sub">${bus.plate}</div></div>
       </div>
-      <!-- Route -->
-      <div style="background:var(--bg);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
-        <div style="font-size:13px;color:var(--muted);margin-bottom:4px;">Ligne ${line.name.split('—')[0].trim()}</div>
-        <div style="font-size:14px;font-weight:600;">📍 ${escapeHtml(fromName)}</div>
-        <div style="font-size:12px;color:var(--green);margin:4px 0;">↓ ${pct}% du trajet effectué</div>
-        <div style="font-size:14px;font-weight:600;">🏁 ${escapeHtml(toName)}</div>
-      </div>
-      <!-- Progress bar -->
-      <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:12px;">
-        <div style="height:100%;width:${pct}%;background:${line.color};border-radius:3px;transition:width 1s;"></div>
-      </div>
-      <!-- Stats -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
-        <div style="background:var(--bg);border-radius:10px;padding:10px;text-align:center;">
-          <div style="font-size:18px;font-weight:700;color:var(--text);">${bus.passengers}</div>
-          <div style="font-size:10px;color:var(--muted);">/ ${bus.capacity} pass.</div>
-        </div>
-        <div style="background:var(--bg);border-radius:10px;padding:10px;text-align:center;">
-          <div style="font-size:13px;font-weight:700;">${speed}</div>
-          <div style="font-size:10px;color:var(--muted);">Vitesse</div>
-        </div>
-        <div style="background:var(--bg);border-radius:10px;padding:10px;text-align:center;">
-          <div style="font-size:14px;font-weight:700;color:var(--green);">${line.frequencyMin} min</div>
-          <div style="font-size:10px;color:var(--muted);">Fréquence</div>
-        </div>
+      <div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:12px;font-size:14px;">
+        <div>📍 ${escapeHtml(stops.find(s=>s.id===line.stopIds[0])?.name || '')}</div>
+        <div style="color:var(--green);margin:4px 0;">↓ Progression: ${Math.round(bus.progress*100)}%</div>
+        <div>🏁 ${escapeHtml(stops.find(s=>s.id===line.stopIds.at(-1))?.name || '')}</div>
       </div>
       <button class="btn-outline" id="untrack-btn">Arrêter le suivi</button>
-    </div>
-  `
+    </div>`
 }
 
-function renderStopSheet(stop: { id: string; name: string; district: string }) {
+function renderStopSheet(stop: any) {
   const preds = getPredictions(stop.id).slice(0, 5)
-  const isFav = favorites.some(f => f.id === stop.id)
   return `
-    <div class="stop-sheet" style="pointer-events:auto;position:relative;">
-      <div class="sheet-handle"></div>
-      <button class="sheet-close" id="close-sheet">✕</button>
-      <div class="stop-sheet-header">
-        <div class="stop-sheet-title">${escapeHtml(stop.name)}</div>
-        <button class="fav-btn-sm" id="fav-stop" data-id="${stop.id}">${isFav ? '⭐' : '☆'}</button>
-      </div>
-      <div class="stop-sheet-sub">${stop.district} · Dakar</div>
-      <div class="pred-list">
-        ${preds.length > 0 ? preds.map(p => `
-          <div class="pred-row">
-            <span class="pred-line-badge" style="background:${p.line.color};min-width:44px;font-size:11px;">${p.line.code}</span>
-            <div class="pred-info">
-              <div class="pred-name">${escapeHtml(p.line.headsign)}</div>
-              <div class="pred-dir" style="font-size:10px;">${p.line.operatorId === 'DDD' ? '🔵 DDD' : '🟠 AFTU-TATA'}</div>
-            </div>
-            <div class="pred-eta ${p.etaMin <= 2 ? 'urgent' : ''}">${formatEta(p.etaMin)}</div>
-          </div>
-        `).join('') : '<p class="empty-msg">Aucun véhicule en approche</p>'}
-      </div>
+    <div class="stop-sheet" style="pointer-events:auto;">
+      <div class="sheet-handle"></div><button class="sheet-close" id="close-sheet">✕</button>
+      <div class="stop-sheet-header"><div class="stop-sheet-title">${escapeHtml(stop.name)}</div></div>
+      <div class="stop-sheet-sub">${stop.district}</div>
+      <div class="pred-list">${preds.map(p => `
+        <div class="pred-row">
+          <span class="pred-line-badge" style="background:${p.line.color};">${p.line.code}</span>
+          <div class="pred-info"><div class="pred-name">${escapeHtml(p.line.headsign)}</div></div>
+          <div class="pred-eta">${formatEta(p.etaMin)}</div>
+        </div>`).join('')}</div>
       <div class="sheet-actions">
-        <button class="btn-green" id="toggle-notif">
-          ${notifiedStops.includes(stop.id) ? '🔔 Actif' : '🔕 M\'avertir'}
-        </button>
+        <button class="btn-green" id="toggle-notif">🔔 M'avertir</button>
         <button class="btn-danger" id="btn-incident">⚠️ Signaler</button>
       </div>
-    </div>
-  `
+    </div>`
 }
 
-// ── Pages ──────────────────────────────────────────────────────────────────
 function renderPage() {
   if (activeTab === 'search') return renderSearch()
-  if (activeTab === 'lines')  return renderLines()
+  if (activeTab === 'planner') return renderPlanner()
+  if (activeTab === 'lines') return renderLines()
   if (activeTab === 'profile') return renderProfile()
   return ''
 }
 
-function renderSearch() {
+function renderPlanner() {
+  const originName = plannerOrigin ? (stops.find(s => s.id === plannerOrigin)?.name || plannerOrigin) : "Ma position"
+  const destName = plannerDestination ? (stops.find(s => s.id === plannerDestination)?.name || plannerDestination) : "Saisir destination"
+  const journeys = (plannerOrigin && plannerDestination) ? findJourneys(plannerOrigin, plannerDestination) : []
+
   return `
-    <div class="search-header">
-      <div class="search-input-row">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-        </svg>
-        <input id="search-input" type="text" placeholder="Ligne ou destination"
-          value="${escapeHtml(searchQuery)}" autocomplete="off" autocorrect="off"
-          autocapitalize="off" spellcheck="false" />
-        <button class="swap-btn" title="Effacer" id="clear-search">
-          ${searchQuery ? '✕' : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M7 16V4m0 0L3 8m4-4 4 4"/><path d="M17 8v12m0 0 4-4m-4 4-4-4"/>
-          </svg>`}
-        </button>
+    <div class="search-header" style="padding-bottom:20px;">
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="search-input-row" style="height:44px;${plannerPicking==='origin'?'border:2px solid #fff;':''}">
+          <div style="width:8px;height:8px;border-radius:50%;background:#3b82f6;margin-right:8px;"></div>
+          <input type="text" value="${escapeHtml(originName)}" readonly id="pick-origin" style="color:var(--text);"/>
+        </div>
+        <div class="search-input-row" style="height:44px;${plannerPicking==='destination'?'border:2px solid #fff;':''}">
+          <div style="width:8px;height:8px;border-radius:50%;background:#ef4444;margin-right:8px;"></div>
+          <input type="text" value="${escapeHtml(destName)}" readonly id="pick-dest" style="color:var(--text);"/>
+        </div>
       </div>
+      ${plannerPicking ? `<div style="margin-top:12px;color:#fff;text-align:center;font-size:13px;">Cliquez sur l'arrêt sur la carte</div>` : ''}
     </div>
-    <div class="search-body" id="search-results-body">
-      ${renderSearchBody()}
-    </div>
-  `
+    <div class="search-body">
+      ${!plannerOrigin || !plannerDestination ? `<p style="text-align:center;padding:40px;color:var(--muted);">Sélectionnez les arrêts ABC.</p>` : `
+        <div class="section-title">Itinéraires suggérés</div>
+        ${journeys.map(j => `
+          <div class="journey-card" style="background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow);">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+               <div>${j.segments.map(s=>`<span class="line-badge" style="background:${s.line.color};color:#fff;font-size:11px;padding:2px 6px;">${s.line.code}</span>`).join(' → ')}</div>
+               <div style="font-size:18px;font-weight:800;color:var(--green);">${j.totalDurationMin} min</div>
+            </div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">${j.segments.length>1?'Correspondance':'Direct'}</div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn-green-sm" data-line-id="${j.segments[0].line.id}" data-stop-id="${plannerOrigin}" style="flex:1;padding:8px;">🔔 Alerte approche</button>
+              <button class="btn-outline-sm" data-track-line="${j.segments[0].line.id}" style="flex:1;padding:8px;">Voir</button>
+            </div>
+          </div>`).join('')}
+      `}
+    </div>`
 }
 
-function renderSearchBody(): string {
+function renderSearch() {
+  return `<div class="search-header"><div class="search-input-row"><input id="search-input" type="text" placeholder="Rechercher..." value="${escapeHtml(searchQuery)}"/><button id="clear-search">✕</button></div></div>
+          <div class="search-body" id="search-results-body">${renderSearchBody()}</div>`
+}
+
+function renderSearchBody() {
   const results = searchQuery.length > 1 ? getSearchResults(searchQuery) : []
-  if (searchQuery.length === 0) { return `
-    <div class="action-cards">
-      <button class="action-card" id="pick-on-map">
-        <div class="action-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
-        <span class="action-label">Choisir sur la carte</span><span class="action-chevron">›</span>
-      </button>
-      <button class="action-card" id="set-home">
-        <div class="action-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
-        <span class="action-label">Définir un domicile</span><span class="action-chevron">›</span>
-      </button>
-      <button class="action-card" id="set-work">
-        <div class="action-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div>
-        <span class="action-label">Définir un lieu de travail</span><span class="action-chevron">›</span>
-      </button>
-      <button class="action-card" id="show-events">
-        <div class="action-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
-        <span class="action-label">Afficher événements</span><span class="action-chevron">›</span>
-      </button>
-    </div>
-    ${searchHistory.length > 0 ? `
-      <div class="section-title" style="margin-top:20px;">Recherches récentes</div>
-      <div class="recent-list">
-        ${searchHistory.map(h => `
-          <div class="recent-item" data-search="${escapeHtml(h)}">
-            <div class="recent-pin"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
-            <div class="recent-text">
-              <div class="recent-name">${escapeHtml(h)}</div>
-              <div class="recent-sub">${h}, Dakar, Sénégal</div>
-            </div>
-            <button class="recent-more">⋮</button>
-          </div>`).join('')}
-      </div>` : ''}
-  `}
-
-  if (results.length > 0) {
-    return `<div class="results-list">
-      ${results.map(r => {
-        if (r.type === 'stop') return `
-          <div class="result-item" data-stop-id="${r.stop.id}">
-            <div class="result-icon" style="background:#4a90d9;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
-            <div class="result-text">
-              <div class="result-name">${escapeHtml(r.stop.name)}</div>
-              <div class="result-sub">${r.stop.district} · Dakar</div>
-            </div>
-          </div>`
-        return `
-          <div class="result-item" data-line-id="${r.line.id}">
-            <div class="result-icon" style="background:${r.line.color};font-size:11px;">${r.line.code}</div>
-            <div class="result-text">
-              <div class="result-name">${escapeHtml(r.line.name)}</div>
-              <div class="result-sub">${r.line.operatorId === 'DDD' ? '🔵 DDD' : '🟠 AFTU-TATA'} · ${r.line.frequencyMin} min</div>
-            </div>
-          </div>`
-      }).join('')}
-    </div>`
-  }
-
-  return `<div style="text-align:center;padding:40px 20px;color:var(--muted);">
-    <div style="font-size:40px;margin-bottom:12px;">🔍</div>
-    <div style="font-size:15px;">Aucun résultat pour « ${escapeHtml(searchQuery)} »</div>
-  </div>`
+  return results.map(r => `
+    <div class="result-item" data-stop-id="${r.type==='stop'?r.stop.id:''}" data-line-id="${r.type==='line'?r.line.id:''}">
+      <div class="result-icon" style="background:${r.type==='stop'?'#4a90d9':r.line.color}">${r.type==='stop'?'📍':r.line.code}</div>
+      <div class="result-text"><div class="result-name">${r.type==='stop'?r.stop.name:r.line.name}</div></div>
+    </div>`).join('')
 }
 
 function updateSearchResults() {
-  const body = uiLayer.querySelector<HTMLElement>('#search-results-body')
-  if (!body) return
-  body.innerHTML = renderSearchBody()
+  const body = document.getElementById('search-results-body'); if (body) { body.innerHTML = renderSearchBody(); attachSearchBodyListeners() }
+}
+
+function renderLines() {
+  const filtered = lines.filter(l => lineFilter==='all' || l.operatorId===lineFilter)
+  return `<div class="page-header"><h2>Toutes les lignes</h2></div>
+          <div class="filter-row">${['all','DDD','AFTU-TATA'].map(f=>`<button class="filter-chip ${lineFilter===f?'active':''}" data-filter="${f}">${f}</button>`).join('')}</div>
+          <div class="lines-list">${filtered.slice(0,50).map(l=>`
+            <div class="line-card" data-line-id="${l.id}"><div class="line-number" style="background:${l.color}">${l.code}</div><div class="line-info"><div class="line-name">${l.name}</div></div></div>`).join('')}</div>`
+}
+
+function renderProfile() {
+  return `<div style="background:var(--green);padding:40px 16px 20px;color:#fff;"><h3>Utilisateur SunuBus</h3></div><div style="padding:16px;"><h4>Favoris</h4><p class="empty-msg">Aucun favori</p></div>`
+}
+
+function renderTabBar() {
+  const tabs = [{id:'map',l:'Carte'},{id:'planner',l:'Trajet'},{id:'search',l:'Lignes'},{id:'lines',l:'Réseau'},{id:'profile',l:'Profil'}]
+  return `<div class="bottom-tab-bar">${tabs.map(t=>`<button class="tab-btn ${activeTab===t.id?'active':''}" data-tab="${t.id}">${t.l}</button>`).join('')}</div>`
+}
+
+function renderIncidentModal() {
+  return `<div class="incident-modal" id="incident-modal"><div class="incident-panel"><h3>Signalement</h3><button id="cancel-incident">Fermer</button></div></div>`
+}
+
+function attachListeners() {
+  uiLayer.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', (e:any) => { activeTab = e.target.dataset.tab; plannerPicking=null; render() }))
+  uiLayer.querySelectorAll('.op-filter-btn').forEach(b => b.addEventListener('click', (e:any) => { mapOperatorFilter = e.target.dataset.op; render() }))
+  uiLayer.querySelector('#go-search')?.addEventListener('click', () => { activeTab = 'search'; render() })
+  uiLayer.querySelector('#go-planner')?.addEventListener('click', () => { activeTab = 'planner'; render() })
+  uiLayer.querySelector('#close-sheet')?.addEventListener('click', () => { selectedStopId = null; trackedBusId = null; render() })
+  uiLayer.querySelector('#untrack-btn')?.addEventListener('click', () => { trackedBusId = null; render() })
+  uiLayer.querySelector('#pick-origin')?.addEventListener('click', () => { plannerPicking = 'origin'; activeTab = 'map'; render() })
+  uiLayer.querySelector('#pick-dest')?.addEventListener('click', () => { plannerPicking = 'destination'; activeTab = 'map'; render() })
+  uiLayer.querySelectorAll('.btn-green-sm[data-line-id]').forEach(b => b.addEventListener('click', (e:any) => {
+    const { lineId, stopId } = e.target.dataset; notifiedLines.push({ lineId, stopId }); alert(`Alerte activée pour ligne ${lineId}`); render()
+  }))
+  uiLayer.querySelectorAll('.btn-outline-sm[data-track-line]').forEach(b => b.addEventListener('click', (e:any) => {
+    const lId = e.target.dataset.trackLine; const bus = buses.find(b=>b.lineId===lId); if (bus) { trackedBusId = bus.id; activeTab='map'; render() }
+  }))
+  const sIn = uiLayer.querySelector<HTMLInputElement>('#search-input')
+  if (sIn) sIn.addEventListener('input', (e:any) => { searchQuery = e.target.value; updateSearchResults() })
+  uiLayer.querySelectorAll('.filter-chip').forEach(b => b.addEventListener('click', (e:any) => { lineFilter = e.target.dataset.filter; render() }))
   attachSearchBodyListeners()
 }
 
 function attachSearchBodyListeners() {
-  uiLayer.querySelector('#pick-on-map')?.addEventListener('click', () => { activeTab = 'map'; render() })
-  uiLayer.querySelector('#set-home')?.addEventListener('click', () => alert('Fonctionnalité domicile à venir'))
-  uiLayer.querySelector('#set-work')?.addEventListener('click', () => alert('Fonctionnalité travail à venir'))
-  uiLayer.querySelector('#show-events')?.addEventListener('click', () => alert('Aucun événement en cours'))
-
-  uiLayer.querySelectorAll<HTMLElement>('.recent-item').forEach(item => {
-    item.addEventListener('click', () => { searchQuery = item.dataset.search || ''; updateSearchResults() })
-  })
-  uiLayer.querySelectorAll<HTMLElement>('.result-item[data-stop-id]').forEach(item => {
-    item.addEventListener('click', () => {
-      const stopId = item.dataset.stopId!
-      selectedStopId = stopId; activeTab = 'map'; searchQuery = ''
-      if (leafletMap && GPS[stopId]) leafletMap.setView(GPS[stopId], 15)
-      render()
-    })
-  })
+  uiLayer.querySelectorAll('.result-item').forEach(b => b.addEventListener('click', (e:any) => {
+    const sId = e.currentTarget.dataset.stopId; if (sId) { selectedStopId = sId; activeTab = 'map'; render() }
+  }))
 }
 
-function renderLines() {
-  const filtered = lines.filter(l => {
-    if (lineFilter === 'DDD') return l.operatorId === 'DDD'
-    if (lineFilter === 'AFTU-TATA') return l.operatorId === 'AFTU-TATA'
-    return true
-  })
-  const dddCount = lines.filter(l => l.operatorId === 'DDD').length
-  const aftuCount = lines.filter(l => l.operatorId === 'AFTU-TATA').length
-  return `
-    <div class="page-header">
-      <h2>Réseau de Dakar</h2>
-      <p>🔵 DDD : ${dddCount} lignes &nbsp;|&nbsp; 🟠 AFTU-TATA : ${aftuCount} lignes</p>
-    </div>
-    <div class="filter-row">
-      <button class="filter-chip ${lineFilter==='all'?'active':''}" data-filter="all">Tous (350)</button>
-      <button class="filter-chip ${lineFilter==='DDD'?'active':''}" data-filter="DDD">🔵 DDD (150)</button>
-      <button class="filter-chip ${lineFilter==='AFTU-TATA'?'active':''}" data-filter="AFTU-TATA">🟠 AFTU-TATA (200)</button>
-    </div>
-    <div class="lines-list">
-      ${filtered.slice(0, 100).map(l => `
-        <button class="line-card" data-line-id="${l.id}">
-          <div class="line-number" style="background:${l.color};font-size:13px;">${l.code}</div>
-          <div class="line-info">
-            <div class="line-name" style="font-size:13px;">${escapeHtml(l.name.split('—')[1]?.trim() ?? l.name)}</div>
-            <div class="line-detail">${l.frequencyMin} min · ${l.stopIds.length} arrêts</div>
-          </div>
-          <span class="line-badge" style="background:${l.operatorId==='DDD'?'#dbeafe':'#fef3c7'};color:${l.operatorId==='DDD'?'#1d4ed8':'#92400e'};">
-            ${l.operatorId === 'DDD' ? 'DDD' : 'AFTU'}
-          </span>
-        </button>`).join('')}
-      ${filtered.length > 100 ? `<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px;">... et ${filtered.length - 100} lignes supplémentaires</div>` : ''}
-    </div>
-  `
-}
-
-function renderProfile() {
-  const { dddCount, aftuCount } = getFleetStats()
-  return `
-    <div style="background:var(--green);padding:48px 16px 20px;">
-      <div style="display:flex;align-items:center;gap:14px;">
-        <div style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;">U</div>
-        <div>
-          <div style="font-size:18px;font-weight:700;color:#fff;">Utilisateur SunuBus</div>
-          <div style="font-size:13px;color:rgba(255,255,255,0.8);">Dakar, Sénégal</div>
-        </div>
-      </div>
-    </div>
-    <div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px;">
-      <!-- Stats réseau -->
-      <div class="profile-card">
-        <div class="profile-card-title">📊 Réseau SunuBus</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);">
-          ${[
-            ['350','Lignes totales'],['61','Arrêts'],
-            [`${dddCount}`,'Bus DDD actifs'],[`${aftuCount}`,'Tata AFTU actifs'],
-            ['150','Lignes DDD'],['200','Lignes AFTU'],
-          ].map(([v,l]) => `
-            <div style="background:var(--white);padding:14px;text-align:center;">
-              <div style="font-size:22px;font-weight:800;color:var(--green);">${v}</div>
-              <div style="font-size:11px;color:var(--muted);">${l}</div>
-            </div>`).join('')}
-        </div>
-      </div>
-      <!-- Favoris -->
-      <div class="profile-card">
-        <div class="profile-card-title">⭐ Favoris</div>
-        ${favorites.length > 0 ? `<div class="fav-chips">${favorites.map(f => {
-          const item = f.type==='line' ? lines.find(l=>l.id===f.id) : stops.find(s=>s.id===f.id)
-          return `<div class="fav-chip">${f.type==='line'?'🚌':'📍'} ${item?.name??f.id}</div>`
-        }).join('')}</div>` : '<p class="empty-msg">Aucun favori</p>'}
-      </div>
-      <!-- Surveillance -->
-      <div class="profile-card">
-        <div class="profile-card-title">📡 Arrêts surveillés</div>
-        ${notifiedStops.length > 0
-          ? notifiedStops.map(id => `<div class="history-item"><span>🔔</span><span>${stops.find(s=>s.id===id)?.name??id}</span></div>`).join('')
-          : '<p class="empty-msg">Aucune surveillance active</p>'}
-      </div>
-    </div>
-  `
-}
-
-function renderTabBar() {
-  const tabs: { id: Tab; label: string; path: string }[] = [
-    { id:'map',     label:'Carte',     path:'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z' },
-    { id:'search',  label:'Recherche', path:'M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z' },
-    { id:'lines',   label:'Lignes',    path:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01' },
-    { id:'profile', label:'Profil',    path:'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z' },
-  ]
-  return `<div class="bottom-tab-bar">
-    ${tabs.map(t => `
-      <button class="tab-btn ${activeTab===t.id?'active':''}" data-tab="${t.id}">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="${t.path}"/>
-        </svg>
-        ${t.label}
-      </button>`).join('')}
-  </div>`
-}
-
-function renderIncidentModal() {
-  return `
-    <div class="incident-modal" id="incident-modal">
-      <div class="incident-panel">
-        <div class="sheet-handle" style="width:40px;height:4px;background:#e2e6ea;border-radius:2px;margin:0 auto 20px;"></div>
-        <h3>Signalement d'incident</h3>
-        <p>Aidez-nous à améliorer le réseau dakarois.</p>
-        <div class="incident-grid">
-          ${[['👥','Bus bondé','Plus de place assise','crowded'],['⏳','Retard majeur','+15 min d\'attente','delay'],['⚠️','Sécurité','Conduite ou incident','dangerous'],['💬','Autre','Préciser par message','other']].map(([i,t,s,v])=>`
-            <button class="incident-opt" data-type="${v}">
-              <span class="inc-icon">${i}</span><strong>${t}</strong><small>${s}</small>
-            </button>`).join('')}
-        </div>
-        <button class="btn-cancel" id="cancel-incident">Fermer</button>
-      </div>
-    </div>`
-}
-
-// ── Listeners ──────────────────────────────────────────────────────────────
-function attachListeners() {
-  // Tabs
-  uiLayer.querySelectorAll<HTMLButtonElement>('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      activeTab = btn.dataset.tab as Tab
-      if (activeTab !== 'map') selectedStopId = null
-      render()
-    })
-  })
-
-  // Operator filter on map
-  uiLayer.querySelectorAll<HTMLButtonElement>('.op-filter-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      mapOperatorFilter = btn.dataset.op as any
-      render()
-      setTimeout(updateBusMarkers, 50)
-    })
-  })
-
-  // "On va où ?" pill
-  uiLayer.querySelector('#go-search')?.addEventListener('click', () => {
-    activeTab = 'search'; render()
-    setTimeout(() => (uiLayer.querySelector<HTMLInputElement>('#search-input'))?.focus(), 100)
-  })
-  // Close stop sheet
-  uiLayer.querySelector('#close-sheet')?.addEventListener('click', () => {
-    selectedStopId = null; trackedBusId = null; render()
-  })
-  // Untrack bus
-  uiLayer.querySelector('#untrack-btn')?.addEventListener('click', () => {
-    trackedBusId = null; render()
-  })
-  // Fav stop
-  uiLayer.querySelector('#fav-stop')?.addEventListener('click', e => {
-    const id = (e.currentTarget as HTMLElement).dataset.id!
-    const idx = favorites.findIndex(f => f.id === id)
-    if (idx === -1) favorites.push({ type:'stop', id })
-    else favorites.splice(idx, 1)
-    render()
-  })
-  // Toggle notif
-  uiLayer.querySelector('#toggle-notif')?.addEventListener('click', () => {
-    if (!selectedStopId) return
-    if (notifiedStops.includes(selectedStopId)) notifiedStops = notifiedStops.filter(s => s !== selectedStopId)
-    else { notifiedStops.push(selectedStopId); alert(`✅ Vous serez averti pour ${stops.find(s=>s.id===selectedStopId)?.name}`) }
-    render()
-  })
-  // Incident
-  uiLayer.querySelector('#btn-incident')?.addEventListener('click', () => { showIncident = true; render() })
-  uiLayer.querySelectorAll<HTMLElement>('.incident-opt').forEach(btn => {
-    btn.addEventListener('click', () => { showIncident = false; alert('✅ Signalement envoyé !'); render() })
-  })
-  uiLayer.querySelector('#cancel-incident')?.addEventListener('click', () => { showIncident = false; render() })
-
-  // Search input
-  const searchInput = uiLayer.querySelector<HTMLInputElement>('#search-input')
-  if (searchInput) {
-    searchInput.addEventListener('input', () => { searchQuery = searchInput.value; updateSearchResults() })
-    searchInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && searchQuery.trim()) {
-        const trimmed = searchQuery.trim()
-        searchHistory = [trimmed, ...searchHistory.filter(h => h !== trimmed)].slice(0, 5)
-        searchQuery = ''; searchInput.value = ''; updateSearchResults()
-      }
-      if (e.key === 'Escape') { searchQuery = ''; searchInput.value = ''; updateSearchResults() }
-    })
-  }
-  uiLayer.querySelector('#clear-search')?.addEventListener('click', () => {
-    searchQuery = ''
-    const inp = uiLayer.querySelector<HTMLInputElement>('#search-input')
-    if (inp) inp.value = ''
-    updateSearchResults()
-  })
-  attachSearchBodyListeners()
-
-  // Line filter
-  uiLayer.querySelectorAll<HTMLElement>('.filter-chip').forEach(chip => {
-    chip.addEventListener('click', () => { lineFilter = chip.dataset.filter as any; render() })
-  })
-}
-
-// ── Tick loop (toutes les 1.5s) ────────────────────────────────────────────
 window.setInterval(() => {
-  tickBuses()
-  if (activeTab === 'map') {
-    updateBusMarkers()
-    // Suivre le bus tracké
-    if (trackedBusId) {
-      const bus = buses.find(b => b.id === trackedBusId)
-      const line = bus ? lines.find(l => l.id === bus.lineId) : null
-      if (bus && line && leafletMap) {
-        const coords = line.stopIds.map(id => GPS[id]).filter(Boolean) as [number,number][]
-        if (coords.length >= 2) {
-          const seg = Math.min(Math.floor(bus.progress * (coords.length - 1)), coords.length - 2)
-          const t = bus.progress * (coords.length - 1) - seg
-          const lat = coords[seg][0] + (coords[seg+1][0] - coords[seg][0]) * t
-          const lng = coords[seg][1] + (coords[seg+1][1] - coords[seg][1]) * t
-          leafletMap.panTo([lat, lng], { animate: true, duration: 1 })
-        }
+  tickBuses(); if (activeTab === 'map') updateBusMarkers()
+  notifiedLines.forEach((n, idx) => {
+    const b = buses.find(x => x.lineId === n.lineId); if (b) {
+      const eta = getEtaMinutes(b, n.stopId); if (eta !== null && eta <= 2 && eta > 0) {
+        alert(`Le bus arrive !`); notifiedLines.splice(idx, 1); render()
       }
-      render()
     }
-  }
+  })
 }, 1500)
 
-// ── Boot ───────────────────────────────────────────────────────────────────
-render()
-setTimeout(initMap, 100)
+render(); setTimeout(initMap, 100)

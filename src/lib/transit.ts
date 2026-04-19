@@ -281,23 +281,30 @@ function getSegmentDuration(line: Line, fromStopId: string, toStopId: string): n
   return Math.max(4, Math.round((line.baseMinutes / Math.max(1, line.stopIds.length - 1)) * hopCount))
 }
 
-export function findJourney(originId: string, destinationId: string): PlannerJourney | null {
-  if (originId === destinationId) {
-    return null
+export function getNearestStop(x: number, y: number): Stop {
+  let bestStop = stops[0]
+  let minDist = Infinity
+  for (const stop of stops) {
+    const d = Math.sqrt(Math.pow(stop.x - x, 2) + Math.pow(stop.y - y, 2))
+    if (d < minDist) {
+      minDist = d
+      bestStop = stop
+    }
   }
+  return bestStop
+}
+
+export function findJourneys(originId: string, destinationId: string): PlannerJourney[] {
+  if (originId === destinationId) return []
 
   const origin = getStop(originId)
   const destination = getStop(destinationId)
-  if (!origin || !destination) {
-    return null
-  }
+  if (!origin || !destination) return []
 
   const directJourneys: PlannerJourney[] = lines
     .map<PlannerJourney | null>((line) => {
       const durationMin = getSegmentDuration(line, originId, destinationId)
-      if (durationMin === null) {
-        return null
-      }
+      if (durationMin === null) return null
       return {
         totalDurationMin: durationMin,
         segments: [
@@ -311,63 +318,35 @@ export function findJourney(originId: string, destinationId: string): PlannerJou
         ],
       }
     })
-    .filter((journey): journey is PlannerJourney => journey !== null)
-    .sort((left, right) => left.totalDurationMin - right.totalDurationMin)
+    .filter((j): j is PlannerJourney => j !== null)
 
-  if (directJourneys[0]) {
-    return directJourneys[0]
-  }
-
-  let bestTransfer: PlannerJourney | null = null
-
+  const transfers: PlannerJourney[] = []
   const originLines = getServingLines(originId)
   const destinationLines = getServingLines(destinationId)
 
   originLines.forEach((firstLine) => {
     destinationLines.forEach((secondLine) => {
-      firstLine.stopIds.forEach((transferStopId) => {
-        if (!secondLine.stopIds.includes(transferStopId) || transferStopId === originId || transferStopId === destinationId) {
-          return
-        }
+      if (firstLine.id === secondLine.id) return
+      firstLine.stopIds.forEach((tId) => {
+        if (!secondLine.stopIds.includes(tId) || tId === originId || tId === destinationId) return
+        const d1 = getSegmentDuration(firstLine, originId, tId)
+        const d2 = getSegmentDuration(secondLine, tId, destinationId)
+        const tStop = getStop(tId)
+        if (d1 === null || d2 === null || !tStop) return
 
-        const firstDuration = getSegmentDuration(firstLine, originId, transferStopId)
-        const secondDuration = getSegmentDuration(secondLine, transferStopId, destinationId)
-        const transferStop = getStop(transferStopId)
-
-        if (firstDuration === null || secondDuration === null || !transferStop) {
-          return
-        }
-
-        const totalDurationMin = firstDuration + secondDuration + 6
-        const candidate: PlannerJourney = {
-          totalDurationMin,
-          transferStop,
+        transfers.push({
+          totalDurationMin: d1 + d2 + 8, // 8 min transfer time
+          transferStop: tStop,
           segments: [
-            {
-              kind: 'transfer',
-              line: firstLine,
-              fromStop: origin,
-              toStop: transferStop,
-              durationMin: firstDuration,
-            },
-            {
-              kind: 'transfer',
-              line: secondLine,
-              fromStop: transferStop,
-              toStop: destination,
-              durationMin: secondDuration,
-            },
+            { kind: 'transfer', line: firstLine, fromStop: origin, toStop: tStop, durationMin: d1 },
+            { kind: 'transfer', line: secondLine, fromStop: tStop, toStop: destination, durationMin: d2 },
           ],
-        }
-
-        if (!bestTransfer || candidate.totalDurationMin < bestTransfer.totalDurationMin) {
-          bestTransfer = candidate
-        }
+        })
       })
     })
   })
 
-  return bestTransfer
+  return [...directJourneys, ...transfers].sort((a,b) => a.totalDurationMin - b.totalDurationMin)
 }
 
 export function tickBuses(): void {
@@ -380,19 +359,4 @@ export function tickBuses(): void {
     const delta = (1 / (line.baseMinutes * 60)) * bus.speedFactor
     bus.progress = (bus.progress + delta) % 1
   })
-}
-
-export function getNearestStop(x: number, y: number): { stop: Stop; distance: number } {
-  let nearest = stops[0]
-  let minDistance = Infinity
-
-  stops.forEach((stop) => {
-    const dist = Math.hypot(stop.x - x, stop.y - y)
-    if (dist < minDistance) {
-      minDistance = dist
-      nearest = stop
-    }
-  })
-
-  return { stop: nearest, distance: minDistance }
 }

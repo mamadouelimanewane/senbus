@@ -843,12 +843,27 @@ html, body {
   margin-bottom: 12px;
 }
 
-/* Pagination indicator for lines */
-.lines-more {
-  text-align: center;
-  padding: 14px;
-  font-size: 13px;
-  color: var(--muted);
-  font-style: italic;
+/* ── Planner Styles ─────────────────────────────────────────────────── */
+.journey-card { transition: transform 0.15s, box-shadow 0.15s; cursor: pointer; border: 1px solid var(--border); }
+.journey-card:active { transform: scale(0.98); box-shadow: var(--shadow-lg); }
+
+.btn-green-sm {
+  background: var(--green);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
 }
+.btn-outline-sm {
+  background: transparent;
+  color: var(--green);
+  border: 1.5px solid var(--green);
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.line-badge-ddd { background: #1565c0; color: #fff; }
+.line-badge-aftu { background: #e65100; color: #fff; }
 
