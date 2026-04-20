@@ -4,6 +4,12 @@ import { buses as staticBuses, lines as staticLines, stops as staticStops } from
 
 export type AdminView = 'dashboard' | 'fleet' | 'lines' | 'command' | 'alerts' | 'geofencing'
 
+type BusHealth = {
+  fuel: number
+  temp: number
+  lastMaintenance: string
+}
+
 export class AdminCore {
   private currentView: AdminView = 'dashboard'
   private buses: Bus[] = []
@@ -12,6 +18,7 @@ export class AdminCore {
   private root: HTMLElement | null
   private map: any = null
   private busMarkers: Map<string, any> = new Map()
+  private fleetHealth: Map<string, BusHealth> = new Map()
 
   constructor(operatorId: string, rootId: string) {
     this.operatorId = operatorId
@@ -21,6 +28,7 @@ export class AdminCore {
 
   private async init() {
     await this.loadData()
+    this.buses.forEach(b => this.fleetHealth.set(b.id, { fuel: 80 + Math.random() * 20, temp: 40 + Math.random() * 20, lastMaintenance: '2026-03-15' }))
     this.render()
     setInterval(() => this.tick(), 1000)
   }
@@ -55,9 +63,22 @@ export class AdminCore {
 
     this.buses.forEach(bus => {
       const isBroken = activeIncidents.some((inc:any) => inc.busId === bus.id)
+      const health = this.fleetHealth.get(bus.id)!
+      
       if (!isBroken) {
         bus.progress += 0.001
         if (bus.progress > 1) bus.progress = 0
+        
+        // Simulating fuel consumption and heat
+        health.fuel = Math.max(0, health.fuel - 0.05)
+        health.temp = Math.min(110, health.temp + (Math.random() * 0.1))
+        
+        if (health.fuel < 5) {
+            // Auto fuel incident if not already reported? 
+            // For now just keep it simple
+        }
+      } else {
+          health.temp = Math.max(30, health.temp - 0.2) // Cooling down while stopped
       }
     })
     
@@ -83,7 +104,6 @@ export class AdminCore {
       const isBroken = activeIncidents.some((inc:any) => inc.busId === bus.id)
       const isOffRoute = geofenceBreaches.some((b:any) => b.busId === bus.id)
       
-      // Using y for latitude, x for longitude
       const lat = s1.y + (s2.y - s1.y) * bus.progress + (isOffRoute ? 0.005 : 0)
       const lng = s1.x + (s2.x - s1.x) * bus.progress + (isOffRoute ? 0.005 : 0)
 
@@ -99,7 +119,7 @@ export class AdminCore {
           weight: (isBroken || isOffRoute) ? 4 : 2,
           className: isBroken ? 'blinking-bus' : ''
         }).addTo(this.map)
-        marker.bindPopup(`<strong>Bus ${bus.plate}</strong><br>${isBroken?'⚠️ PANNE':(isOffRoute?'🚨 HORS TRAJET':'Ligne '+line.code)}`)
+        marker.bindPopup(`<strong>Bus ${bus.plate}</strong>`)
         this.busMarkers.set(bus.id, marker)
       } else {
         marker.setLatLng([lat, lng])
@@ -111,68 +131,78 @@ export class AdminCore {
   private renderDashboard() {
     const activeIncidents = this.checkIncidents()
     const geofenceBreaches = this.checkGeofence()
-    const totalCap = this.buses.reduce((a,b)=>a+b.capacity, 0)
-    const totalPass = this.buses.reduce((a,b)=>a+b.passengers, 0)
-    const load = Math.round((totalPass/totalCap)*100) || 0
+    const lowFuelCount = Array.from(this.fleetHealth.values()).filter(h => h.fuel < 20).length
 
     return `
-      <div class="header-title"><h2>Surveillance Live</h2><p>État du réseau ${this.operatorId}.</p></div>
+      <div class="header-title"><h2>Intelligence Flotte</h2><p>Analyse prédictive et performance ${this.operatorId}.</p></div>
       <div class="stats-grid" style="margin-top:24px;">
-        <div class="stat-card"><div class="stat-label">Bus en service</div><div class="stat-value">${this.buses.length}</div></div>
-        <div class="stat-card" style="${activeIncidents.length > 0 ? 'border-color:#ef4444' : ''}"><div class="stat-label">Incidents</div><div class="stat-value" style="color:${activeIncidents.length > 0 ? '#ef4444' : 'inherit'}">${activeIncidents.length}</div></div>
-        <div class="stat-card" style="${geofenceBreaches.length > 0 ? 'border-color:#eab308' : ''}"><div class="stat-label">Hors Trajet</div><div class="stat-value" style="color:${geofenceBreaches.length > 0 ? '#eab308' : 'inherit'}">${geofenceBreaches.length}</div></div>
-        <div class="stat-card"><div class="stat-label">Charge Flotte</div><div class="stat-value">${load}%</div></div>
-      </div>
-
-      ${geofenceBreaches.length > 0 ? `
-        <div class="table-container" style="border-color:#eab308">
-          <div class="table-header" style="background:rgba(234,179,8,0.1)">
-            <h3 style="color:#856404">🚨 Déviations d'itinéraire détectées</h3>
-          </div>
-          <table class="data-table">
-            <thead><tr><th>Véhicule</th><th>Alerte</th><th>Heure</th><th>Action</th></tr></thead>
-            <tbody>
-              ${geofenceBreaches.map((b:any) => `<tr><td><strong>${b.busId}</strong></td><td><span class="badge" style="background:#fef3c7; color:#856404">SORTIE CORRIDOR</span></td><td>${new Date(b.timestamp).toLocaleTimeString()}</td><td><button class="btn btn-ghost btn-message" data-bus-id="${b.busId}">Rappeler à l'ordre</button></td></tr>`).join('')}
-            </tbody>
-          </table>
+        <div class="stat-card" style="${lowFuelCount > 0 ? 'border-color:#f59e0b' : ''}">
+          <div class="stat-label">Alertes Énergie</div>
+          <div class="stat-value" style="color:${lowFuelCount > 0 ? '#f59e0b' : 'inherit'}">${lowFuelCount}</div>
         </div>
-      ` : ''}
-    `
-  }
-
-  private renderGeofencing() {
-    const breaches = this.checkGeofence()
-    return `
-      <div class="header-title"><h2>Géofencing & Corridors</h2><p>Surveillance automatique des trajectoires.</p></div>
-      <div class="stats-grid" style="margin-top:24px;">
-        <div class="stat-card"><div class="stat-label">Corridors Actifs</div><div class="stat-value">${this.lines.length * 2}</div></div>
-        <div class="stat-card"><div class="stat-label">Tolérance</div><div class="stat-value">100m</div></div>
+        <div class="stat-card" style="${activeIncidents.length > 0 ? 'border-color:#ef4444' : ''}">
+          <div class="stat-label">Pannes Critiques</div>
+          <div class="stat-value" style="color:${activeIncidents.length > 0 ? '#ef4444' : 'inherit'}">${activeIncidents.length}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Santé Moteur Avg</div>
+          <div class="stat-value" style="color:#10b981">Bonne</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Disponibilité</div>
+          <div class="stat-value">94%</div>
+        </div>
       </div>
-      <div class="empty-state">
-        ${breaches.length === 0 ? '<p>Aucune infraction de zone détectée pour le moment.</p>' : `Détection active pour ${this.operatorId}.`}
+
+      <div class="table-container">
+        <div class="table-header"><h3>🛠️ Maintenance Préventive</h3></div>
+        <table class="data-table">
+          <thead><tr><th>Bus</th><th>Carburant</th><th>Temp.</th><th>État</th></tr></thead>
+          <tbody>
+            ${this.buses.slice(0,5).map(b => {
+              const h = this.fleetHealth.get(b.id)!
+              const isWarning = h.fuel < 25 || h.temp > 90
+              return `<tr>
+                <td><strong>${b.plate}</strong></td>
+                <td>
+                  <div style="width:100px; height:8px; background:#334155; border-radius:4px; overflow:hidden;">
+                    <div style="width:${h.fuel}%; height:100%; background:${h.fuel < 25 ? '#ef4444' : '#10b981'}"></div>
+                  </div>
+                  <span style="font-size:10px; color:var(--admin-muted)">${Math.round(h.fuel)}%</span>
+                </td>
+                <td><span style="color:${h.temp > 90 ? '#ef4444' : 'inherit'}">${Math.round(h.temp)}°C</span></td>
+                <td><span class="badge ${isWarning ? 'badge-orange' : 'badge-green'}">${isWarning ? 'Vérification' : 'Optimal'}</span></td>
+              </tr>`
+            }).join('')}
+          </tbody>
+        </table>
       </div>
     `
-  }
-
-  private renderCommand() {
-    return `<div class="command-map-container"><div id="command-map"></div><div class="map-overlay-card"><div class="map-title"><span class="pulse-live"></span><h3>Commandement</h3></div><div class="fleet-stat-row"><span>Bus Actifs</span><strong>${this.buses.length}</strong></div><div class="fleet-stat-row" style="color:#ef4444"><span>Pannes</span><strong>${this.checkIncidents().length}</strong></div><div class="fleet-stat-row" style="color:#eab308"><span>Hors Trajet</span><strong>${this.checkGeofence().length}</strong></div></div></div>`
-  }
-
-  private sendMessageToBus(busId: string) {
-    const msg = prompt(`Message pour ${busId}:`)
-    if (msg) {
-      const messages = JSON.parse(localStorage.getItem('sunubus_messages') || '[]')
-      messages.push({ id: Date.now(), to: busId, from: `Admin ${this.operatorId}`, text: msg, timestamp: new Date().toISOString(), read: false })
-      localStorage.setItem('sunubus_messages', JSON.stringify(messages))
-    }
   }
 
   private renderFleet() {
-    const incidents = this.checkIncidents(); const breaches = this.checkGeofence()
-    return `<div class="admin-header"><h2>Ma Flotte</h2></div><div class="table-container"><table class="data-table"><thead><tr><th>Bus</th><th>Statut</th><th>Trajet</th><th>Actions</th></tr></thead><tbody>${this.buses.map(b => {
-      const isBroken = incidents.some((inc:any)=>inc.busId===b.id); const isOff = breaches.some((br:any)=>br.brId===b.id) // Adjusted to use busId since br is from geofence breaches
-      return `<tr><td><strong>${b.plate}</strong></td><td><span class="badge ${isBroken?'badge-red':(isOff?'badge-orange':'badge-green')}">${isBroken?'PANNE':(isOff?'HORS-TRAJET':'OK')}</span></td><td>${Math.round(b.progress*100)}%</td><td><button class="btn btn-ghost btn-message" data-bus-id="${b.id}">💬</button></td></tr>`
-    }).join('')}</tbody></table></div>`
+    return `
+      <div class="admin-header"><h2>Ma Flotte</h2></div>
+      <div class="table-container">
+        <table class="data-table">
+          <thead><tr><th>Bus</th><th>Énergie</th><th>Plan de Vol</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${this.buses.map(b => {
+              const h = this.fleetHealth.get(b.id)!
+              return `<tr>
+                <td><strong>${b.plate}</strong></td>
+                <td>${Math.round(h.fuel)}%</td>
+                <td>Ligne ${this.lines.find(l=>l.id===b.lineId)?.code}</td>
+                <td>
+                  <button class="btn btn-ghost" onclick="alert('Plein effectué pour ${b.plate}')">⚡ Refaire le plein</button>
+                  <button class="btn btn-ghost btn-message" data-bus-id="${b.id}">💬</button>
+                </td>
+              </tr>`
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `
   }
 
   public setView(view: AdminView) { this.currentView = view; this.render(); if (view==='command') setTimeout(()=>this.initMap(),100) }
@@ -189,9 +219,13 @@ export class AdminCore {
 
   public render() {
     if(!this.root) return; let content = ''
-    switch(this.currentView){case 'dashboard':content=this.renderDashboard();break;case 'command':content=this.renderCommand();break;case 'fleet':content=this.renderFleet();break;case 'geofencing':content=this.renderGeofencing();break;}
+    switch(this.currentView){case 'dashboard':content=this.renderDashboard();break;case 'command':content=this.renderCommand();break;case 'fleet':content=this.renderFleet();break;case 'geofencing':content=`<h2>Géofencing</h2>`;break;}
     this.root.innerHTML = `<div class="admin-layout ${this.currentView==='command'?'command-center':''}">${this.renderSidebar()}<main class="admin-main">${content}</main></div>`
     this.root.querySelectorAll('.nav-link[data-view]').forEach(btn=>btn.addEventListener('click',()=>this.setView((btn as HTMLElement).dataset.view as AdminView)))
-    this.root.querySelectorAll('.btn-message').forEach(btn => btn.addEventListener('click', (e) => { const id = (e.currentTarget as HTMLElement).dataset.busId; if (id) this.sendMessageToBus(id) }))
+    this.root.querySelectorAll('.btn-message').forEach(btn => btn.addEventListener('click', (e) => { const id = (e.currentTarget as HTMLElement).dataset.busId; if (id) {
+        const msg = prompt('Message:'); if(msg) {
+            const m = JSON.parse(localStorage.getItem('sunubus_messages')||'[]'); m.push({id:Date.now(),to:id,text:msg,read:false}); localStorage.setItem('sunubus_messages',JSON.stringify(m))
+        }
+    } }))
   }
 }
