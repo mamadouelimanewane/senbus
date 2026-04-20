@@ -121,6 +121,22 @@ export class AdminCore {
     })
   }
 
+  private exportData() {
+    const header = "BusID,Plaque,Ligne,Carburant,Temp,Statut\n"
+    const rows = this.buses.map(b => {
+      const h = this.fleetHealth.get(b.id)!
+      const line = this.lines.find(l => l.id === b.lineId)?.code || 'N/A'
+      return `${b.id},${b.plate},${line},${Math.round(h.fuel)}%,${Math.round(h.temp)}°C,OK`
+    }).join("\n")
+    
+    const blob = new Blob([header + rows], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `rapport_sunubus_${this.operatorId}_${new Date().toISOString().slice(0,10)}.csv`
+    a.click()
+  }
+
   private renderDashboard() {
     const activeIncidents = this.checkIncidents()
     const geofenceBreaches = this.checkGeofence()
@@ -130,7 +146,10 @@ export class AdminCore {
     const lowFuelCount = Array.from(this.fleetHealth.values()).filter(h => h.fuel < 20).length
 
     return `
-      <div class="header-title"><h2>Intelligence Flotte</h2><p>Analyse prédictive et performance ${this.operatorId}.</p></div>
+      <div class="admin-header">
+        <div class="header-title"><h2>Intelligence Flotte</h2><p>Analyse et performance ${this.operatorId}.</p></div>
+        <button class="btn btn-primary" id="btn-export">📊 Exporter CSV</button>
+      </div>
       <div class="stats-grid" style="margin-top:24px;">
         <div class="stat-card" style="${lowFuelCount > 0 ? 'border-color:#f59e0b' : ''}"><div class="stat-label">Alertes Énergie</div><div class="stat-value" style="color:${lowFuelCount > 0 ? '#f59e0b' : 'inherit'}">${lowFuelCount}</div></div>
         <div class="stat-card" style="${activeIncidents.length > 0 ? 'border-color:#ef4444' : ''}"><div class="stat-label">Pannes</div><div class="stat-value" style="color:${activeIncidents.length > 0 ? '#ef4444' : 'inherit'}">${activeIncidents.length}</div></div>
@@ -182,5 +201,6 @@ export class AdminCore {
     this.root.querySelectorAll('.btn-message').forEach(btn => btn.addEventListener('click', (e) => { const id = (e.currentTarget as HTMLElement).dataset.busId; if (id) {
         const msg = prompt('Message:'); if(msg) { const m = JSON.parse(localStorage.getItem('sunubus_messages')||'[]'); m.push({id:Date.now(),to:id,text:msg,read:false,from:this.operatorId}); localStorage.setItem('sunubus_messages',JSON.stringify(m)) }
     } }))
+    this.root.querySelector('#btn-export')?.addEventListener('click', () => this.exportData())
   }
 }
