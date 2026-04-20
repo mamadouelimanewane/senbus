@@ -21,12 +21,12 @@ let showIncident = false
 let isDarkMode = false
 let showStats = false
 let leafletMap: any = null
+const stopById = new Map(stops.map(s => [s.id, s]))
 let canvasRenderer: any = null
 let busCircles: Map<string, any> = new Map()
 let routePolyline: any = null
 let routeDecorators: any = null
 let stopsLayer: any = null
-let busesLayer: any = null
 
 const CORRIDORS_RAW = [['palais','sandaga','petersen','medina','gueule-tapee','colobane','pikine','thiaroye-gare','rufisque','bargny','diamniadio','sebikotane'], ['palais','dakar-ponty','tilene','biscuiterie','hlm','dieuppeul','castors','liberte6','sacrecoeur','grand-yoff','patte-oie','nord-foire','parcelles','cambrene','guediawaye'], ['palais','fann','stele-mermoz','mermoz','ouakam','almadies','ngor','yoff']]
 
