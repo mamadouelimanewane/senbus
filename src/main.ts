@@ -61,7 +61,7 @@ async function initMap() {
   }
 
   // WARM UP CACHE for all lines in background
-  lines.forEach((line) => getFullRoadPathSync(line.stopIds))
+  lines.forEach((line) => getFullRoadPathSync(line.stopIds, line.code))
 
   stops.forEach(stop => {
     const c = GPS[stop.id]; if(!c) return
@@ -128,7 +128,7 @@ async function updateBusMarkers() {
     if (trackedBusId && !isT) { const ex=busCircles.get(bus.id); if(ex) ex.remove(); continue }
     if (!trackedBusId && mapOperatorFilter!=='all' && line.operatorId!==mapOperatorFilter) { const ex=busCircles.get(bus.id); if(ex) ex.remove(); continue }
 
-    const road = getFullRoadPathSync(line.stopIds)
+    const road = getFullRoadPathSync(line.stopIds, line.code)
     if (road.coords.length < 2) continue
 
     if (isT) {

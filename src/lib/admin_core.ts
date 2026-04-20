@@ -84,7 +84,7 @@ export class AdminCore {
     for (const bus of this.buses) {
       const line = this.lines.find(l => l.id === bus.lineId); if (!line) continue
       
-      const road = getFullRoadPathSync(line.stopIds)
+      const road = getFullRoadPathSync(line.stopIds, line.code)
       if (road.coords.length < 2) continue
 
       const isBroken = activeIncidents.some((inc:any) => inc.busId === bus.id); const isOff = geofenceBreaches.some((b:any) => b.busId === bus.id)
