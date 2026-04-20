@@ -46,23 +46,20 @@ async function initMap() {
   canvasRenderer = L.canvas({ padding: 0.5 })
   leafletMap = L.map('map-layer', { zoomControl: false, minZoom: 11, maxZoom: 18 }).setView([14.7137, -17.4300], 12)
   
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    attribution: '© OpenStreetMap, © CartoDB',
-    subdomains: 'abcd',
-    maxZoom: 20
+  L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+    attribution: 'Google Maps'
   }).addTo(leafletMap)
   
   stopsLayer = L.layerGroup().addTo(leafletMap)
   routeDecorators = L.layerGroup().addTo(leafletMap)
 
-  const userIcon = L.divIcon({ className:'', html:'<div class="user-dot-marker"></div>', iconSize:[20,20], iconAnchor:[10,10]})
+  const userIcon = L.divIcon({ className:'', html:'<div class="user-dot-marker" style="background:#fff; border:3px solid #1a73e8; box-shadow:0 0 10px rgba(0,0,0,0.5)"></div>', iconSize:[20,20], iconAnchor:[10,10]})
   L.marker([14.7137, -17.4300], { icon: userIcon, zIndexOffset: 2000 }).addTo(leafletMap)
 
-  // Tracer les corridors principaux avec le routage LIVE (Uber-style)
+  // Tracer les corridors de fond avec le routage Iron-Track
   for (const cor of CORRIDORS_RAW) {
-     getFullRoadPath(cor).then((road: RoadGeometry) => {
-        L.polyline(road.coords, { color:'#94a3b8', weight:1.5, opacity:0.4 }).addTo(leafletMap)
-     })
+     const road = getFullRoadPathSync(cor)
+     L.polyline(road.coords, { color:'#fff', weight:1, opacity:0.3 }).addTo(leafletMap)
   }
 
   // WARM UP CACHE for all lines in background
