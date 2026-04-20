@@ -1,6 +1,6 @@
 import { fetchNetwork } from './api'
-import type { Bus, Line, Stop } from '../types'
-import { buses as staticBuses, lines as staticLines, stops as staticStops } from '../data/network'
+import type { Bus, Line } from '../types'
+import { buses as staticBuses, lines as staticLines } from '../data/network'
 import { getFullRoadPath, interpolate } from './routing'
 
 export type AdminView = 'dashboard' | 'fleet' | 'lines' | 'command' | 'alerts' | 'geofencing'
