@@ -1,6 +1,6 @@
 /**
- * Moteur de Routage "Iron-Track" (Rail Routier Infaillible)
- * Aucun appel API. Navigation 100% locale, stable et sans erreur de tracé.
+ * Moteur de Routage "Iron-Track v2" (Zéro-Mer Certifié)
+ * Utilise une barrière géographique infranchissable pour protéger la baie de Dakar.
  */
 
 export const GPS: Record<string, [number, number]> = {
@@ -11,18 +11,15 @@ export const GPS: Record<string, [number, number]> = {
   'ouakam': [14.7340, -17.4900], 'mermoz': [14.7120, -17.4720], 'fann': [14.6877, -17.4635],
   'yoff': [14.7530, -17.4740], 'ngor': [14.7470, -17.5130], 'aeroport': [14.7425, -17.4902],
   'pikine': [14.7473, -17.3867], 'thiaroye-gare': [14.7298, -17.3740], 'parcelles': [14.7853, -17.4277],
-  'rufisque': [14.7165, -17.2718], 'diamniadio': [14.7180, -17.1830]
-}
-
-// Points de passage obligatoires pour éviter la mer
-const BYPASS_NODES = {
-  'AUTOROUTE': [[14.7050, -17.4320], [14.6850, -17.4290], [14.6750, -17.4300]], 
-  'VDN': [[14.7300, -17.4520], [14.7100, -17.4550], [14.6850, -17.4635]]
+  'rufisque': [14.7165, -17.2718], 'diamniadio': [14.7180, -17.1830], 'cyrnos': [14.6850, -17.4300]
 }
 
 export type RoadGeometry = { coords: [number, number][], distances: number[], total: number }
 export const roadCache = new Map<string, RoadGeometry>()
 
+/**
+ * Logique de barrière géographique (Rail-Lock)
+ */
 function solveRoadPath(stopIds: string[]): [number, number][] {
   const result: [number, number][] = []
   
@@ -32,25 +29,35 @@ function solveRoadPath(stopIds: string[]): [number, number][] {
     if (!c1 || !c2) continue
     if (i === 0) result.push(c1)
 
-    // Logique de Secteur (Est <-> Ouest)
-    const isEast = (c: [number, number]) => c[1] > -17.41
-    const isWest = (c: [number, number]) => c[1] < -17.43
+    // DÉFINITION DE LA BARRIÈRE DE LA BAIE (Longitude)
+    // Tout ce qui est à l'Est de -17.405 est en banlieue (Pikine+)
+    // Tout ce qui est à l'Ouest de -17.425 est en ville (Plateau/Hann/Colobane)
+    const isEast = (c: [number, number]) => c[1] > -17.405
+    const isWest = (c: [number, number]) => c[1] < -17.425
     
+    // Si un segment franchit la zone interdite (la mer)
     if ((isEast(c1) && isWest(c2)) || (isWest(c1) && isEast(c2))) {
-      // Forcer le passage par l'Autoroute (Bypass de la mer)
-      const nodes = isEast(c1) ? [...BYPASS_NODES.AUTOROUTE].reverse() : BYPASS_NODES.AUTOROUTE
-      nodes.forEach(n => result.push(n as [number, number]))
+      // INJECTION FORCÉE DU PONT DE LA PATTE D'OIE + AUTOROUTE
+      if (isEast(c1)) {
+        result.push([14.7229, -17.4481]) // Patte d'Oie
+        result.push([14.7050, -17.4320]) // Hann
+        result.push([14.6850, -17.4290]) // Cyrnos
+      } else {
+        result.push([14.6850, -17.4290]) // Cyrnos
+        result.push([14.7050, -17.4320]) // Hann
+        result.push([14.7229, -17.4481]) // Patte d'Oie
+      }
     }
     result.push(c2)
   }
   
-  return result.filter((c, i) => i === 0 || (c[0] !== result[i-1][0]))
+  // Nettoyage des doublons
+  return result.filter((c, i) => i === 0 || (c[0] !== result[i-1][0] || c[1] !== result[i-1][1]))
 }
 
 export function getFullRoadPathSync(stopIds: string[]): RoadGeometry {
   const key = stopIds.join('|')
   if (roadCache.has(key)) return roadCache.get(key)!
-
   const coords = solveRoadPath(stopIds)
   const distances: number[] = [0]; let total = 0
   for (let i = 0; i < coords.length - 1; i++) {

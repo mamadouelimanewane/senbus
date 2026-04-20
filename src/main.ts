@@ -59,7 +59,7 @@ async function initMap() {
   // Tracer les corridors de fond avec le routage Iron-Track
   for (const cor of CORRIDORS_RAW) {
      const road = getFullRoadPathSync(cor)
-     L.polyline(road.coords, { color:'#fff', weight:1, opacity:0.3 }).addTo(leafletMap)
+     L.polyline(road.coords, { color:'#fff', weight:2, opacity:0.5 }).addTo(leafletMap)
   }
 
   // WARM UP CACHE for all lines in background
