@@ -8,7 +8,6 @@ export class AdminCore {
   private currentView: AdminView = 'dashboard'
   private buses: Bus[] = []
   private lines: Line[] = []
-  private stops: Stop[] = []
   private operatorId: string
   private root: HTMLElement | null
   private map: any = null
@@ -42,20 +41,17 @@ export class AdminCore {
         return line?.operatorId === this.operatorId
       })
       this.lines = network.lines.filter(l => l.operatorId === this.operatorId)
-      this.stops = network.stops
     } catch (err) {
       this.buses = staticBuses.filter(b => {
         const line = staticLines.find(l => l.id === b.lineId)
         return line?.operatorId === this.operatorId
       })
       this.lines = staticLines.filter(l => l.operatorId === this.operatorId)
-      this.stops = staticStops
     }
   }
 
   private tick() {
     const activeIncidents = this.checkIncidents()
-    const geofenceBreaches = this.checkGeofence()
 
     this.buses.forEach(bus => {
       const isBroken = activeIncidents.some((inc:any) => inc.busId === bus.id)
@@ -80,15 +76,16 @@ export class AdminCore {
       const line = this.lines.find(l => l.id === bus.lineId)
       if (!line) return
       
-      const s1 = staticStops.find(s => s.id === line.stopIds[0])
-      const s2 = staticStops.find(s => s.id === line.stopIds[line.stopIds.length-1])
+      const s1 = staticStops.find((s:Stop) => s.id === line.stopIds[0])
+      const s2 = staticStops.find((s:Stop) => s.id === line.stopIds[line.stopIds.length-1])
       if (!s1 || !s2) return
 
       const isBroken = activeIncidents.some((inc:any) => inc.busId === bus.id)
       const isOffRoute = geofenceBreaches.some((b:any) => b.busId === bus.id)
       
-      const lat = s1.lat + (s2.lat - s1.lat) * bus.progress + (isOffRoute ? 0.005 : 0)
-      const lng = s1.lng + (s2.lng - s1.lng) * bus.progress + (isOffRoute ? 0.005 : 0)
+      // Using y for latitude, x for longitude
+      const lat = s1.y + (s2.y - s1.y) * bus.progress + (isOffRoute ? 0.005 : 0)
+      const lng = s1.x + (s2.x - s1.x) * bus.progress + (isOffRoute ? 0.005 : 0)
 
       let marker = this.busMarkers.get(bus.id)
       const color = isBroken ? '#ef4444' : (isOffRoute ? '#eab308' : line.color)
@@ -114,6 +111,9 @@ export class AdminCore {
   private renderDashboard() {
     const activeIncidents = this.checkIncidents()
     const geofenceBreaches = this.checkGeofence()
+    const totalCap = this.buses.reduce((a,b)=>a+b.capacity, 0)
+    const totalPass = this.buses.reduce((a,b)=>a+b.passengers, 0)
+    const load = Math.round((totalPass/totalCap)*100) || 0
 
     return `
       <div class="header-title"><h2>Surveillance Live</h2><p>État du réseau ${this.operatorId}.</p></div>
@@ -121,7 +121,7 @@ export class AdminCore {
         <div class="stat-card"><div class="stat-label">Bus en service</div><div class="stat-value">${this.buses.length}</div></div>
         <div class="stat-card" style="${activeIncidents.length > 0 ? 'border-color:#ef4444' : ''}"><div class="stat-label">Incidents</div><div class="stat-value" style="color:${activeIncidents.length > 0 ? '#ef4444' : 'inherit'}">${activeIncidents.length}</div></div>
         <div class="stat-card" style="${geofenceBreaches.length > 0 ? 'border-color:#eab308' : ''}"><div class="stat-label">Hors Trajet</div><div class="stat-value" style="color:${geofenceBreaches.length > 0 ? '#eab308' : 'inherit'}">${geofenceBreaches.length}</div></div>
-        <div class="stat-card"><div class="stat-label">Statut Système</div><div class="stat-value" style="color:#3fb950; font-size:1.4rem;"><span class="pulse-live"></span> OK</div></div>
+        <div class="stat-card"><div class="stat-label">Charge Flotte</div><div class="stat-value">${load}%</div></div>
       </div>
 
       ${geofenceBreaches.length > 0 ? `
@@ -164,14 +164,13 @@ export class AdminCore {
       const messages = JSON.parse(localStorage.getItem('sunubus_messages') || '[]')
       messages.push({ id: Date.now(), to: busId, from: `Admin ${this.operatorId}`, text: msg, timestamp: new Date().toISOString(), read: false })
       localStorage.setItem('sunubus_messages', JSON.stringify(messages))
-      alert('Transmis.')
     }
   }
 
   private renderFleet() {
     const incidents = this.checkIncidents(); const breaches = this.checkGeofence()
     return `<div class="admin-header"><h2>Ma Flotte</h2></div><div class="table-container"><table class="data-table"><thead><tr><th>Bus</th><th>Statut</th><th>Trajet</th><th>Actions</th></tr></thead><tbody>${this.buses.map(b => {
-      const isBroken = incidents.some((inc:any)=>inc.busId===b.id); const isOff = breaches.some((br:any)=>br.busId===b.id)
+      const isBroken = incidents.some((inc:any)=>inc.busId===b.id); const isOff = breaches.some((br:any)=>br.brId===b.id) // Adjusted to use busId since br is from geofence breaches
       return `<tr><td><strong>${b.plate}</strong></td><td><span class="badge ${isBroken?'badge-red':(isOff?'badge-orange':'badge-green')}">${isBroken?'PANNE':(isOff?'HORS-TRAJET':'OK')}</span></td><td>${Math.round(b.progress*100)}%</td><td><button class="btn btn-ghost btn-message" data-bus-id="${b.id}">💬</button></td></tr>`
     }).join('')}</tbody></table></div>`
   }

@@ -1,6 +1,6 @@
 import { buses, lines, stops } from './data/network'
 import { getPredictions, getSearchResults, tickBuses, formatEta, escapeHtml, findJourneys } from './lib/transit'
-import { GPS, getFullRoadPath, interpolate, roadCache } from './lib/routing'
+import { GPS, getFullRoadPath, interpolate } from './lib/routing'
 import './style.css'
 
 declare const L: any

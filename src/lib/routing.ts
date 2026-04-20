@@ -1,7 +1,6 @@
 /**
  * Service de Routage Partagé (LocationIQ/OSRM)
  */
-import { stops } from '../data/network'
 
 export const GPS: Record<string, [number, number]> = {
   'palais': [14.6681, -17.4420], 'independance': [14.6698, -17.4388], 'sandaga': [14.6720, -17.4359], 'petersen': [14.6728, -17.4326], 'kermel': [14.6650, -17.4410], 'rebeuss': [14.6590, -17.4352], 'republique': [14.6690, -17.4401], 'dakar-ponty': [14.6740, -17.4430],
