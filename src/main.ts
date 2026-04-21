@@ -56,9 +56,9 @@ async function initMap() {
   leafletMap = L.map('map-layer', { zoomControl: false, minZoom: 11, maxZoom: 18 })
     .setView([14.7137, -17.4300], 12)
 
-  L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-    attribution: '© Google Maps',
-    maxZoom: 20,
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19,
   }).addTo(leafletMap)
 
   stopsLayer = L.layerGroup().addTo(leafletMap)
@@ -383,8 +383,9 @@ function renderSearch() {
 }
 
 function renderSearchBody() {
+  if (!searchQuery.trim()) return '<div class="empty-state"><p>Tapez le nom d\'une ligne ou d\'un quartier pour commencer l\'exploration !</p></div>'
   const r = getSearchResults(searchQuery)
-  if (r.length === 0) return '<div class="empty-state"><p>Aucun résultat trouvé.</p></div>'
+  if (r.length === 0) return '<div class="empty-state"><p>Oups ! Nous n\'avons pas trouvé ce trajet. Essayez un autre mot-clé ?</p></div>'
   return r.map(res => {
     const isStop = res.type === 'stop'
     return `
@@ -460,12 +461,12 @@ function renderPlanner() {
       <div class="planner-box">
         <div class="planner-row">
           <div class="dot green"></div>
-          <input type="text" placeholder="Départ" value="${o ? o.name : ''}" readonly>
+          <input type="text" placeholder="Départ" value="${o ? o.name : ''}" id="input-origin">
           <button id="btn-pick-origin" class="btn-pick">🗺️</button>
         </div>
         <div class="planner-row">
           <div class="dot red"></div>
-          <input type="text" placeholder="Arrivée" value="${d ? d.name : ''}" readonly>
+          <input type="text" placeholder="Arrivée" value="${d ? d.name : ''}" id="input-destination">
           <button id="btn-pick-dest" class="btn-pick">🗺️</button>
         </div>
         ${o && d ? `<button class="btn-calc-route" id="btn-calc-route">🔄 Recalculer</button>` : ''}
