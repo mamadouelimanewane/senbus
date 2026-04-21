@@ -19,69 +19,102 @@ export const stops: Stop[] = [
   { id:'rebeuss',         name:'Rebeuss',               x:22, y:75, district:'Dakar'   },
   { id:'republique',      name:'Rue République',        x:21, y:68, district:'Plateau' },
   { id:'dakar-ponty',     name:'Dakar Ponty',           x:21, y:67, district:'Plateau' },
+  { id:'assemblee',       name:'Assemblée Nationale',   x:23, y:71, district:'Plateau' },
+  { id:'principal',       name:'Hôpital Principal',     x:18, y:74, district:'Plateau' },
+  { id:'ledantec',        name:'Hôpital Le Dantec',     x:17, y:76, district:'Plateau' },
+  { id:'primature',       name:'La Primature',          x:19, y:70, district:'Plateau' },
   // MÉDINA / FASS
   { id:'medina',          name:'Médina',                x:28, y:60, district:'Médina'  },
   { id:'fass',            name:'Fass',                  x:26, y:56, district:'Fass-Colobane' },
-  { id:'tilene',          name:'Tilène',                x:30, y:63, district:'Médina'  },
+  { id:'tilene',          name:'Marché Tilène',         x:30, y:63, district:'Médina'  },
   { id:'biscuiterie',     name:'Biscuiterie',           x:34, y:57, district:'Médina'  },
   { id:'gueule-tapee',    name:'Gueule Tapée',          x:27, y:62, district:'Médina'  },
+  { id:'centenaire',      name:'Centenaire',            x:32, y:60, district:'Dakar'   },
+  { id:'gibraltar',       name:'Gibraltar',             x:33, y:61, district:'Dakar'   },
   // COLOBANE / HLM
-  { id:'colobane',        name:'Colobane',              x:38, y:58, district:'Gare Routière' },
-  { id:'hlm',             name:'HLM',                   x:42, y:52, district:'HLM'     },
-  { id:'castors',         name:'Castors',               x:45, y:48, district:'Dieuppeul' },
+  { id:'colobane',        name:'Gare Colobane',         x:38, y:58, district:'Gare Routière' },
+  { id:'hlm',             name:'Marché HLM',            x:42, y:52, district:'HLM'     },
+  { id:'castors',         name:'Marché Castors',        x:45, y:48, district:'Dieuppeul' },
   { id:'dieuppeul',       name:'Dieuppeul',             x:40, y:53, district:'Dieuppeul' },
+  { id:'derkle',          name:'Derklé',                x:44, y:55, district:'Dakar'   },
+  { id:'liberte1',        name:'Liberté 1',             x:46, y:50, district:'Sicap'   },
   // VDN / SICAP
-  { id:'liberte6',        name:'Liberté 6',             x:55, y:40, district:'VDN'     },
-  { id:'sacrecoeur',      name:'Sacré-Cœur',            x:48, y:45, district:'SICAP'   },
+  { id:'liberte6',        name:'Rond-point Liberté 6',  x:55, y:40, district:'VDN'     },
+  { id:'sacrecoeur',      name:'Sacré-Cœur 3',          x:48, y:45, district:'SICAP'   },
   { id:'grand-yoff',      name:'Grand Yoff',            x:50, y:42, district:'Dakar'   },
-  { id:'patte-oie',       name:"Patte d'Oie",           x:60, y:45, district:"Patte d'Oie" },
-  { id:'foire',           name:'Foire Dakar',           x:62, y:40, district:'Foire'   },
+  { id:'patte-oie',       name:"Rond-point Patte d'Oie",x:60, y:45, district:"Patte d'Oie" },
+  { id:'foire',           name:'Foire CICES',           x:62, y:40, district:'Foire'   },
   { id:'nord-foire',      name:'Nord Foire',            x:63, y:38, district:'Nord Foire' },
+  { id:'vdn-pylones',     name:'VDN Pylônes',           x:58, y:38, district:'VDN'     },
+  { id:'cite-keur-gorgui',name:'Cité Keur Gorgui',      x:52, y:45, district:'VDN'     },
   // CORNICHE / ALMADIES
-  { id:'fann',            name:'Fann',                  x:15, y:55, district:'Corniche Ouest' },
+  { id:'fann',            name:'Fac Faidherbe (Fann)',  x:15, y:55, district:'Corniche Ouest' },
+  { id:'ucad',            name:'Université UCAD',       x:14, y:57, district:'Fann'    },
+  { id:'hopital-fann',    name:'Hôpital Fann',          x:13, y:59, district:'Fann'    },
   { id:'point-e',         name:'Point E',               x:25, y:50, district:'Point E'  },
   { id:'stele-mermoz',    name:'Stèle Mermoz',          x:15, y:43, district:'Mermoz'  },
-  { id:'mermoz',          name:'Mermoz',                x:16, y:40, district:'Mermoz'  },
-  { id:'virage',          name:'Virage',                x:24, y:48, district:'Liberté' },
+  { id:'mermoz',          name:'Ecole Mermoz',          x:16, y:40, district:'Mermoz'  },
+  { id:'seaplaza',        name:'Sea Plaza Mall',        x:12, y:50, district:'Fann'    },
+  { id:'virage',          name:'Le Virage',             x:24, y:48, district:'Ngor'    },
   { id:'cite-etudiants',  name:'Cité Étudiants',        x:26, y:46, district:'Liberté' },
-  { id:'ouakam',          name:'Ouakam',                x:18, y:30, district:'Mamelles' },
-  { id:'almadies',        name:'Almadies',              x:12, y:22, district:'Almadies' },
-  { id:'ngor',            name:'Ngor',                  x:10, y:15, district:'Almadies' },
-  { id:'yoff',            name:'Yoff',                  x:25, y:10, district:'Aéroport' },
-  { id:'aeroport',        name:'Aéroport LSS',          x:23, y:18, district:'Yoff'    },
+  { id:'ouakam',          name:'Monument Renaissance',  x:18, y:30, district:'Ouakam'  },
+  { id:'almadies',        name:'Rond-point Almadies',   x:12, y:22, district:'Almadies' },
+  { id:'ngor',            name:'Plage de Ngor',         x:10, y:15, district:'Almadies' },
+  { id:'mamelles',        name:'Phare des Mamelles',    x:14, y:28, district:'Ouakam'  },
+  { id:'divinite',        name:'Mosquée Divinité',      x:16, y:32, district:'Ouakam'  },
+  { id:'yoff',            name:'Yoff BCEAO',            x:25, y:10, district:'Aéroport' },
+  { id:'aeroport',        name:'Terminal Aéroport LSS', x:23, y:18, district:'Yoff'    },
   // PIKINE / THIAROYE
-  { id:'pikine',          name:'Pikine',                x:70, y:60, district:'Marché Pikine' },
+  { id:'pikine',          name:'Gare Pikine',           x:70, y:60, district:'Le Parc' },
   { id:'bounkheling',     name:'Bounkheling',           x:72, y:62, district:'Pikine'  },
-  { id:'golf-sud',        name:'Golf Sud',              x:64, y:56, district:'Pikine'  },
-  { id:'camp-penal',      name:'Camp Pénal',            x:58, y:55, district:'Pikine'  },
-  { id:'wakam',           name:'Wakam',                 x:55, y:57, district:'Pikine'  },
+  { id:'golf-sud',        name:'Golf Sud',              x:64, y:56, district:'Gédiawaye'},
+  { id:'camp-penal',      name:'Camp Pénal',            x:58, y:55, district:'Liberté 6'},
+  { id:'wakam',           name:'Wakam Route',           x:55, y:57, district:'Pikine'  },
   { id:'diamaguene',      name:'Diamaguène',            x:73, y:57, district:'Pikine'  },
   { id:'cite-sotrac',     name:'Cité Sotrac',           x:68, y:55, district:'Pikine'  },
   { id:'thiaroye-azur',   name:'Thiaroye Azur',         x:80, y:65, district:'Banlieue' },
   { id:'thiaroye-gare',   name:'Thiaroye Gare',         x:78, y:68, district:'Banlieue' },
-  { id:'autoroute-hann',  name:'Autoroute (Hann)',      x:60, y:65, district:'Maritime' },
-  { id:'cyrnos',          name:'Cyrnos',                x:40, y:70, district:'Port'     },
+  { id:'autoroute-hann',  name:'Autoroute (Hann)',      x:60, y:65, district:'Hann'     },
+  { id:'parc-hann',       name:'Parc de Hann',          x:55, y:68, district:'Hann'     },
+  { id:'cite-imprimerie', name:'Cité Imprimerie',       x:62, y:62, district:'Pikine'  },
+  { id:'cyrnos',          name:'Pont de Cyrnos',        x:40, y:70, district:'Port'     },
   // BANLIEUE NORD
-  { id:'parcelles',       name:'Parcelles Assainies',   x:75, y:25, district:'Unité 15' },
-  { id:'cambrene',        name:'Cambérène',             x:78, y:20, district:'Cambérène' },
-  { id:'guediawaye',      name:'Guédiawaye',            x:85, y:35, district:'Banlieue' },
+  { id:'parcelles',       name:'Parcelles U.15',        x:75, y:25, district:'Parcelles'},
+  { id:'u1',              name:'Parcelles U.01',        x:72, y:28, district:'Parcelles'},
+  { id:'u26',             name:'Parcelles U.26',        x:78, y:22, district:'Parcelles'},
+  { id:'cambrene',        name:'Cambérène Terminus',    x:78, y:20, district:'Cambérène' },
+  { id:'guediawaye',      name:'Gare Guédiawaye',       x:85, y:35, district:'Guédiawaye' },
   { id:'hamo4',           name:'HLM Hamo 4',            x:80, y:33, district:'Guédiawaye' },
   { id:'cite-comico',     name:'Cité Comico',           x:80, y:28, district:'Guédiawaye' },
-  { id:'sipres',          name:'Sipres',                x:82, y:38, district:'Guédiawaye' },
-  { id:'dakar-eaux-forets',name:'Dakar Eaux-Forêts',   x:72, y:38, district:'Pikine'  },
+  { id:'sipres',          name:'Sipres Gédiawaye',      x:82, y:38, district:'Guédiawaye' },
+  { id:'sahm',            name:'Marché Sahm',           x:35, y:20, district:'Gédiawaye' },
+  { id:'dakar-eaux-forets',name:'Dakar Eaux-Forêts',    x:72, y:38, district:'Pikine'  },
   // BANLIEUE EST
-  { id:'yeumbeul',        name:'Yeumbeul',              x:82, y:50, district:'Banlieue' },
-  { id:'malika',          name:'Malika',                x:90, y:45, district:'Littoral' },
-  { id:'mbao',            name:'Mbao',                  x:85, y:68, district:'Banlieue' },
-  { id:'keur-mbaye-fall', name:'Keur Mbaye Fall',       x:86, y:69, district:'Banlieue' },
-  { id:'keur-massar',     name:'Keur Massar',           x:88, y:70, district:'Vilon'   },
+  { id:'yeumbeul',        name:'Yeumbeul Marché',       x:82, y:50, district:'Yeumbeul' },
+  { id:'malika',          name:'Malika Plage',          x:90, y:45, district:'Malika'   },
+  { id:'mbao',            name:'Petit Mbao',            x:85, y:68, district:'Mbao'     },
+  { id:'keur-mbaye-fall', name:'Keur Mbaye Fall',       x:86, y:69, district:'Mbao'     },
+  { id:'keur-massar',     name:'Gare Keur Massar',      x:88, y:70, district:'Keur Massar'},
   { id:'zac-mbao',        name:'ZAC Mbao',              x:84, y:67, district:'Mbao'    },
-  { id:'route-nationale', name:'Route Nationale',       x:80, y:62, district:'Banlieue' },
-  // PÉRIPHÉRIE LOINTAINE
-  { id:'rufisque',        name:'Rufisque',              x:95, y:80, district:'Banlieue' },
-  { id:'bargny',          name:'Bargny',                x:96, y:85, district:'Banlieue' },
-  { id:'diamniadio',      name:'Diamniadio',            x:98, y:90, district:'Nouvelle Ville' },
-  { id:'sebikotane',      name:'Sébikotane',            x:99, y:95, district:'Périphérie' },
+  { id:'route-nationale', name:'Route Nationale 1',     x:80, y:62, district:'Banlieue' },
+  { id:'hopital-dalal-jamm', name:'Hôp. Dalal Jamm',    x:85, y:30, district:'Gédiawaye' },
+  // PÉRIPHÉRIE
+  { id:'rufisque',        name:'Gare Rufisque',         x:95, y:80, district:'Rufisque' },
+  { id:'bargny',          name:'Bargny Guedj',          x:96, y:85, district:'Bargny'   },
+  { id:'diamniadio',      name:'Gare Diamniadio',       x:98, y:90, district:'Plateforme'},
+  { id:'sebikotane',      name:'Terminus Sébikotane',   x:99, y:95, district:'Sébikotane'},
+  { id:'enam',            name:'ENAM',                  x:20, y:45, district:'Point E'  },
+  { id:'ism',             name:'Groupe ISM',            x:22, y:48, district:'Point E'  },
+  { id:'esp',             name:'Ecole Polytechnique',   x:15, y:58, district:'Fann'    },
+  { id:'piscine-olympique',name:'Piscine Olympique',    x:26, y:52, district:'Point E'  },
+  { id:'magic-land',      name:'Magic Land',            x:22, y:78, district:'Dakar'   },
+  { id:'musee-civilisations',name:'Musée Civilisations',x:19, y:69, district:'Plateau' },
+  { id:'theatre-national',name:'Théâtre National',     x:18, y:70, district:'Plateau' },
+  { id:'pachal',          name:'Clinique Pachal',       x:23, y:73, district:'Plateau' },
+  { id:'pompier',         name:'Caserne Pompier',       x:32, y:65, district:'Colobane'},
+  { id:'croix-rouge',     name:'Croix Rouge',           x:25, y:68, district:'Plateau' },
+  { id:'samu',            name:'SAMU National',         x:52, y:54, district:'Pikine'  },
+  { id:'grand-theatre',   name:'Grand Théâtre',         x:30, y:72, district:'Dakar'   },
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -267,25 +300,27 @@ for (const base of AFTU_BASE) {
 export const lines: Line[] = [...dddLines, ...aftuLines]
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 350 BUS SIMULÉS (1 par ligne)
-// DDD = grand bus bleu (60-75 passagers)
-// AFTU-TATA = car rapide / minibus orange (25-40 passagers)
+// 300 BUS SIMULÉS (3 par ligne, répartis uniformément)
 // ─────────────────────────────────────────────────────────────────────────────
-export const buses: Bus[] = lines.map((line, i) => {
+export const buses: Bus[] = []
+lines.forEach((line, i) => {
   const isDDD = line.operatorId === 'DDD'
-  const capacity = isDDD ? 60 + (i % 4) * 5 : 25 + (i % 4) * 5   // 60-75 | 25-40
-  const occupancy = 0.25 + (i % 8) * 0.09                           // 25%–88%
-  return {
-    id: isDDD
-      ? `DDD-${String(i + 1).padStart(3, '0')}`
-      : `AT-${String(i - 149).padStart(3, '0')}`,
-    lineId: line.id,
-    progress: ((i * 0.137) % 0.98) + 0.01,   // répartis sur toute la route
-    speedFactor: 0.80 + (i % 7) * 0.06,       // 0.80 – 1.16
-    capacity,
-    passengers: Math.round(capacity * occupancy),
-    plate: isDDD
-      ? `DK-${String(100 + (i * 7) % 900).padStart(3, '0')}-DD`
-      : `DK-${String(100 + (i * 11) % 900).padStart(3, '0')}-AT`,
+  const baseIdPrefix = isDDD ? 'DDD' : 'AT'
+  
+  for (let b = 0; b < 3; b++) {
+    const globalIdx = buses.length
+    const capacity = isDDD ? 60 + (globalIdx % 4) * 5 : 25 + (globalIdx % 4) * 5
+    const occupancy = 0.3 + (globalIdx % 7) * 0.1  // 30% à 90%
+    
+    buses.push({
+      id: `${baseIdPrefix}-${String(globalIdx + 1).padStart(3, '0')}`,
+      lineId: line.id,
+      // Répartition uniforme sur la ligne (0%, 33%, 66%) + petit bruit pour éviter l'alignement parfait
+      progress: ((b / 3) + (i * 0.02)) % 1,
+      speedFactor: 0.85 + (globalIdx % 5) * 0.05,
+      capacity,
+      passengers: Math.min(capacity, Math.round(capacity * occupancy)),
+      plate: `DK-${String(1000 + globalIdx).padStart(4, '0')}-${isDDD ? 'DD' : 'AT'}`,
+    })
   }
 })

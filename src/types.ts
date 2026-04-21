@@ -50,10 +50,17 @@ export type SearchResult =
       type: 'line'
       line: Line
     }
+  | {
+      type: 'other'
+      id: string
+      icon: string
+      label: string
+      subLabel: string
+    }
 
 export type PlannerSegment = {
-  kind: 'direct' | 'transfer'
-  line: Line
+  kind: 'direct' | 'transfer' | 'walk'
+  line?: Line
   fromStop: Stop
   toStop: Stop
   durationMin: number

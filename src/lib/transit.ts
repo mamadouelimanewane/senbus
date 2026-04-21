@@ -1,4 +1,5 @@
 import { stops, lines, buses } from '../data/network'
+import { DAKAR_LANDMARKS } from '../data/landmarks'
 import type { ApiNetwork, ApiSnapshot, Bus, Line, PlannerJourney, Prediction, RouteMetrics, SearchResult, Stop } from '../types'
 import { GPS, getDistanceKm, roadCache } from './routing'
 
@@ -263,7 +264,15 @@ export function getSearchResults(query: string, filter: 'all' | 'DDD' | 'AFTU' =
     .slice(0, 4)
     .map((line) => ({ type: 'line', line }))
 
-  return [...matchedStops, ...matchedLines]
+  const matchedLandmarks: SearchResult[] = DAKAR_LANDMARKS
+    .filter(l => {
+      const agg = normalizeString(`${l.name} ${l.district} ${l.type}`)
+      return terms.every(term => isFuzzyMatch(agg, term))
+    })
+    .slice(0, 4)
+    .map(landmark => ({ type: 'other', id: landmark.name, icon: '📍', label: landmark.name, subLabel: `${landmark.district} (${landmark.type})` }))
+
+  return [...matchedStops, ...matchedLines, ...matchedLandmarks]
 }
 
 function getSegmentDuration(line: Line, fromStopId: string, toStopId: string): number | null {
@@ -296,6 +305,15 @@ export function getNearestStop(x: number, y: number): Stop {
   return bestStop
 }
 
+export function getNearbyStops(stopId: string, radius: number = 4): Stop[] {
+  const target = stopById.get(stopId)
+  if (!target) return []
+  return stops.filter(s => {
+    const d = Math.sqrt(Math.pow(s.x - target.x, 2) + Math.pow(s.y - target.y, 2))
+    return d <= radius
+  })
+}
+
 export function findJourneys(originId: string, destinationId: string): PlannerJourney[] {
   if (originId === destinationId) return []
 
@@ -303,53 +321,88 @@ export function findJourneys(originId: string, destinationId: string): PlannerJo
   const destination = getStop(destinationId)
   if (!origin || !destination) return []
 
-  const directJourneys: PlannerJourney[] = lines
-    .map<PlannerJourney | null>((line) => {
-      const durationMin = getSegmentDuration(line, originId, destinationId)
-      if (durationMin === null) return null
-      return {
-        totalDurationMin: durationMin,
-        segments: [
-          {
-            kind: 'direct' as const,
-            line,
-            fromStop: origin,
-            toStop: destination,
-            durationMin,
-          },
-        ],
-      }
+  const journeys: PlannerJourney[] = []
+  
+  // 1. Cluster hubs: find stops near origin and destination
+  const origins = getNearbyStops(originId, 4)
+  const destinations = getNearbyStops(destinationId, 4)
+
+  // 2. Search for direct lines between any origin-cluster stop and any destination-cluster stop
+  origins.forEach(o => {
+    destinations.forEach(d => {
+      lines.forEach(line => {
+        const durationMin = getSegmentDuration(line, o.id, d.id)
+        if (durationMin !== null) {
+          const segments = []
+          if (o.id !== originId) segments.push({ kind: 'walk' as any, fromStop: origin, toStop: o, durationMin: 5 })
+          segments.push({ kind: 'direct' as any, line, fromStop: o, toStop: d, durationMin })
+          if (d.id !== destinationId) segments.push({ kind: 'walk' as any, fromStop: d, toStop: destination, durationMin: 5 })
+          
+          journeys.push({
+            totalDurationMin: durationMin + (o.id !== originId ? 5 : 0) + (d.id !== destinationId ? 5 : 0),
+            segments
+          })
+        }
+      })
     })
-    .filter((j): j is PlannerJourney => j !== null)
+  })
 
-  const transfers: PlannerJourney[] = []
-  const originLines = getServingLines(originId)
-  const destinationLines = getServingLines(destinationId)
-
-  originLines.forEach((firstLine) => {
-    destinationLines.forEach((secondLine) => {
-      if (firstLine.id === secondLine.id) return
-      firstLine.stopIds.forEach((tId) => {
-        if (!secondLine.stopIds.includes(tId) || tId === originId || tId === destinationId) return
-        const d1 = getSegmentDuration(firstLine, originId, tId)
-        const d2 = getSegmentDuration(secondLine, tId, destinationId)
-        const tStop = getStop(tId)
-        if (d1 === null || d2 === null || !tStop) return
-
-        transfers.push({
-          totalDurationMin: d1 + d2 + 8, // 8 min transfer time
-          transferStop: tStop,
-          segments: [
-            { kind: 'transfer', line: firstLine, fromStop: origin, toStop: tStop, durationMin: d1 },
-            { kind: 'transfer', line: secondLine, fromStop: tStop, toStop: destination, durationMin: d2 },
-          ],
+  // 3. Search for 1-transfer journeys
+  origins.forEach(o => {
+    const oLines = getServingLines(o.id)
+    destinations.forEach(d => {
+      const dLines = getServingLines(d.id)
+      
+      oLines.forEach(l1 => {
+        dLines.forEach(l2 => {
+          if (l1.id === l2.id) return
+          // Find intersection
+          const shared = l1.stopIds.filter(id => l2.stopIds.includes(id))
+          shared.forEach(tId => {
+            if (tId === o.id || tId === d.id) return
+            const d1 = getSegmentDuration(l1, o.id, tId)
+            const d2 = getSegmentDuration(l2, tId, d.id)
+            const tStop = getStop(tId)
+            if (d1 !== null && d2 !== null && tStop) {
+              const segments = []
+              if (o.id !== originId) segments.push({ kind: 'walk' as any, fromStop: origin, toStop: o, durationMin: 5 })
+              segments.push({ kind: 'transfer' as any, line: l1, fromStop: o, toStop: tStop, durationMin: d1 })
+              segments.push({ kind: 'transfer' as any, line: l2, fromStop: tStop, toStop: d, durationMin: d2 })
+              if (d.id !== destinationId) segments.push({ kind: 'walk' as any, fromStop: d, toStop: destination, durationMin: 5 })
+              
+              journeys.push({
+                totalDurationMin: d1 + d2 + 12,
+                segments
+              })
+            }
+          })
         })
       })
     })
   })
 
-  return [...directJourneys, ...transfers].sort((a,b) => a.totalDurationMin - b.totalDurationMin)
+  // 4. Fallback: if still nothing, try 1-transfer between ANY line from origin cluster and ANY line from destination cluster via a hub
+  if (journeys.length === 0) {
+    const hubs = ['palais', 'petersen', 'colobane', 'pikine']
+    hubs.forEach(hId => {
+       if (hId === originId || hId === destinationId) return
+       const toHub = findJourneys(originId, hId)[0]
+       const fromHub = findJourneys(hId, destinationId)[0]
+       if (toHub && fromHub) {
+         journeys.push({
+           totalDurationMin: toHub.totalDurationMin + fromHub.totalDurationMin,
+           segments: [...toHub.segments, ...fromHub.segments]
+         })
+       }
+    })
+  }
+
+  return journeys
+    .filter((v, i, a) => a.findIndex(t => t.totalDurationMin === v.totalDurationMin && t.segments.length === v.segments.length) === i)
+    .sort((a, b) => a.totalDurationMin - b.totalDurationMin)
+    .slice(0, 8)
 }
+
 
 export function tickBuses(): void {
   buses.forEach((bus) => {

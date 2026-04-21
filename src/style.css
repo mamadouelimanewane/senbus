@@ -27,7 +27,66 @@ body { font-family: 'Google Sans', Roboto, Arial, sans-serif; background: #fff; 
   position: absolute;
   inset: 0;
   z-index: 1;
+  background-color: #f0f0f0;
 }
+
+#page-content {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none; 
+}
+#page-content > * { pointer-events: auto; }
+
+#page-content.opaque-page {
+  background: #fff;
+  pointer-events: auto;
+}
+
+.page-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  padding: 16px;
+  background: #fff;
+  overflow-y: auto;
+  padding-bottom: 90px;
+}
+
+#tab-bar-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+}
+
+/* ── Prediction Dropdown ──────────────────────────────────────────────────── */
+.prediction-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1.5px solid #e0e0e0;
+  border-top: none;
+  border-radius: 0 0 14px 14px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.prediction-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f5f5f5;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+.prediction-item:last-child { border-bottom: none; }
+.prediction-item:active { background: #f0f0f0; }
+.prediction-item small { display: block; color: var(--text-muted); font-size: 11px; margin-top: 2px; }
 
 /* ── Map Controls & UI ────────────────────────────────────────────────── */
 .map-controls {
@@ -515,35 +574,22 @@ body { font-family: 'Google Sans', Roboto, Arial, sans-serif; background: #fff; 
 /* Overlay picking */
 #picking-overlay {
   position: fixed;
-  top: 80px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 100px;
+  left: 16px;
+  right: 16px;
   background: #174ea6;
   color: #fff;
-  padding: 12px 24px;
-  border-radius: 30px;
-  z-index: 3000;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  padding: 16px 20px;
+  border-radius: 16px;
+  z-index: 5000;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.4);
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   font-weight: 700;
-  font-size: 14px;
-  white-space: nowrap;
-}
-#picking-overlay #cancel-picking {
-  background: rgba(255,255,255,0.2);
-  border: none;
-  color: #fff;
-  font-weight: 900;
-  cursor: pointer;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
+  font-size: 15px;
+  border: 2px solid rgba(255,255,255,0.2);
 }
 
 /* Bus figure markers */
@@ -578,12 +624,16 @@ body { font-family: 'Google Sans', Roboto, Arial, sans-serif; background: #fff; 
   100% { box-shadow: 0 0 0 0 rgba(66,133,244,0); }
 }
 .stop-dot-marker {
-  width: 8px;
-  height: 8px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: #fff;
-  border: 2px solid #555;
+  border: 2.5px solid #1a73e8;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
 }
+.picking-content { display: flex; align-items: center; gap: 8px; }
+.picking-pulse { animation: pickingPulse 0.8s infinite alternate; }
+@keyframes pickingPulse { from { transform: scale(0.9); } to { transform: scale(1.3); } }
 .gare-marker {
   display: flex;
   align-items: center;
@@ -668,20 +718,44 @@ body { font-family: 'Google Sans', Roboto, Arial, sans-serif; background: #fff; 
 }
 
 /* ── Route Source Indicator (on map) ────────────────────────────────────── */
-#route-source-indicator {
+/* Focus Itinéraire / Suivi */
+#route-focus-overlay {
   position: absolute;
-  bottom: 180px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 800;
-  pointer-events: none;
+  top: 100px;
+  right: 15px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-.route-source-badge {
-  padding: 6px 16px;
+
+.btn-circular {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: white;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  color: #333;
+}
+
+.btn-circular:active {
+  transform: scale(0.9);
+}
+
+#route-source-indicator {
+  padding: 8px 16px;
+  background: rgba(26, 115, 232, 0.9);
+  color: white;
   border-radius: 20px;
   font-size: 12px;
-  font-weight: 700;
-  backdrop-filter: blur(10px);
+  font-weight: 600;
+  backdrop-filter: blur(4px);
   box-shadow: 0 2px 12px rgba(0,0,0,0.3);
   white-space: nowrap;
 }
@@ -916,4 +990,116 @@ body { font-family: 'Google Sans', Roboto, Arial, sans-serif; background: #fff; 
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   display: inline-block;
+}
+
+/* -- Virtual Ticket Premium --------------------------------------------- */
+.virtual-ticket {
+  background: #fff;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+  border: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+}
+.ticket-top {
+  background: #1a73e8;
+  color: #fff;
+  padding: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.sunu-logo-mini { font-weight: 900; font-size: 14px; }
+.ticket-type { font-size: 11px; opacity: 0.8; text-transform: uppercase; font-weight: 700; }
+.ticket-body {
+  padding: 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  text-align: left;
+}
+.t-col span { display: block; font-size: 10px; color: #888; text-transform: uppercase; margin-bottom: 4px; }
+.t-col strong { font-size: 16px; color: #333; }
+.ticket-qr-sim {
+  padding: 20px;
+  background: #fcfcfc;
+  display: flex;
+  justify-content: center;
+  border-top: 1px dashed #eee;
+}
+.ticket-footer {
+  padding: 10px;
+  background: #f8f9fa;
+  font-size: 10px;
+  color: #888;
+  border-top: 1px solid #eee;
+}
+
+
+/* --- Tracking & ETAs Premium --- */
+.arrival-time-premium {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.eta-val {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1a73e8;
+}
+.suivre-label {
+  font-size: 10px;
+  color: #fff;
+  background: #1a73e8;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.tracking-sheet { background: linear-gradient(180deg, #ffffff 0%, #f8f9ff 100%); }
+.eta-dashboard { background: #fff; border-radius: 20px; padding: 24px; margin: 15px 0; box-shadow: 0 8px 24px rgba(26, 115, 232, 0.08); border: 1px solid rgba(26, 115, 232, 0.1); text-align: center; }
+.eta-main { margin-bottom: 20px; }
+.eta-label { font-size: 13px; color: #5f6368; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+.eta-countdown { font-size: 48px; font-weight: 900; color: #1a73e8; letter-spacing: -1px; }
+.eta-details { display: flex; justify-content: center; gap: 10px; }
+.eta-pill { padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+.eta-pill.occupancy { background: #e8f0fe; color: #1967d2; }
+.eta-pill.traffic { background: #f1f3f4; color: #3c4043; }
+.btn-primary { background: #1a73e8; color: #fff; width: 100%; padding: 14px; border-radius: 12px; font-weight: 600; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(26, 115, 232, 0.2); }
+
+/* --- Planner Optimization --- */
+.step-label { font-size: 13px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; }
+.planner-input-wrapper { display: flex; align-items: center; gap: 10px; background: #fff; border: 1.5px solid #eee; border-radius: 12px; padding: 4px 12px; position: relative; }
+.planner-input-wrapper input { border: none; flex: 1; padding: 12px 0; font-size: 15px; background: none; }
+.planner-input-wrapper input:focus { outline: none; }
+.planner-input-wrapper .btn-pick { background: none; border: none; font-size: 18px; cursor: pointer; padding: 4px; }
+
+.btn-primary-premium { background: var(--admin-primary); color: #fff; border: none; border-radius: 12px; padding: 16px; width: 100%; font-weight: 800; font-size: 16px; box-shadow: 0 4px 15px rgba(26,115,232,0.3); cursor: pointer; }
+
+.results-title { font-size: 18px; font-weight: 800; margin: 25px 0 15px 0; color: var(--admin-secondary); }
+.instruction-box { background: #fff3e0; border-radius: 12px; padding: 16px; margin-top: 20px; border: 1px solid #ffe0b2; color: #e65100; font-size: 14px; line-height: 1.5; }
+
+.btn-back-picking { background: #fff !important; color: #174ea6 !important; border: none; border-radius: 8px; padding: 8px 12px; font-weight: 800; font-size: 13px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+
+.timeline-step.end .timeline-dot { background: #ea4335 !important; transform: scale(1.3); }
+.step-text { display: flex; flex-direction: column; gap: 2px; }
+.liq-route-info-row { display: flex; align-items: center; justify-content: space-between; background: #e8f0fe; padding: 12px 16px; border-radius: 12px; margin-top: 15px; font-size: 14px; font-weight: 700; color: #1967d2; }
+.btn-show-map-tiny { background: #1a73e8; color: #fff; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; }
+/* --- Transition Picking --- */
+.is-picking .stop-dot-marker {
+  animation: tapPulse 1s infinite alternate;
+  border: 3px solid #f4b400 !important;
+  background: #fff;
+  transform: scale(1.5);
+  box-shadow: 0 0 15px rgba(244, 180, 0, 0.6);
+  z-index: 9999 !important;
+}
+@keyframes tapPulse {
+  0% { transform: scale(1.2); box-shadow: 0 0 0 0 rgba(244, 180, 0, 0.5); }
+  100% { transform: scale(1.8); box-shadow: 0 0 0 15px rgba(244, 180, 0, 0); }
+}
+.is-picking #map-layer {
+  filter: grayscale(0.3) contrast(1.1);
 }
