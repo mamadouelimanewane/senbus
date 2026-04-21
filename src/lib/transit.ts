@@ -273,8 +273,14 @@ function getSegmentDuration(line: Line, fromStopId: string, toStopId: string): n
     return null
   }
 
-  const hopCount = toIndex - fromIndex
-  return Math.max(4, Math.round((line.baseMinutes / Math.max(1, line.stopIds.length - 1)) * hopCount))
+  const { stopRatios } = getRouteMetrics(line)
+  const fromRatio = stopRatios[fromStopId] ?? (fromIndex / (line.stopIds.length - 1))
+  const toRatio = stopRatios[toStopId] ?? (toIndex / (line.stopIds.length - 1))
+  
+  const ratioDiff = toRatio - fromRatio
+  if (ratioDiff <= 0) return null
+  
+  return Math.max(4, Math.round(ratioDiff * line.baseMinutes))
 }
 
 export function getNearestStop(x: number, y: number): Stop {
