@@ -69,7 +69,6 @@ export class AdminCore {
   }
 
   private tick() {
-    const activeIncidents = this.checkIncidents()
     this.buses.forEach(bus => {
       const health = this.fleetHealth.get(bus.id)
       // All buses move now, regardless of status, to satisfy demo requirements
