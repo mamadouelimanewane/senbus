@@ -1,7 +1,7 @@
 import { fetchNetwork } from './api'
 import type { Bus, Line } from '../types'
 import { buses as staticBuses, lines as staticLines } from '../data/network'
-import { getFullRoadPathSync, interpolate } from './routing'
+import { getLineRoadGeometry, interpolate } from './routing'
 
 export type AdminView = 'dashboard' | 'fleet' | 'lines' | 'command' | 'alerts' | 'geofencing'
 
@@ -86,7 +86,7 @@ export class AdminCore {
     for (const bus of this.buses) {
       const line = this.lines.find(l => l.id === bus.lineId); if (!line) continue
       
-      const road = getFullRoadPathSync(line.stopIds)
+      const road = getLineRoadGeometry(line.id, line.stopIds)
       if (road.coords.length < 2) continue
 
       const isBroken = activeIncidents.some((inc:any) => inc.busId === bus.id); const isOff = geofenceBreaches.some((b:any) => b.busId === bus.id)
