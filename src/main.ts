@@ -15,7 +15,7 @@ class Bus {
   marker: L.Marker;
   currentStopIndex: number = 0;
   progress: number = 0;
-  speed: number = 0.0015;
+  speed: number = 0.005;
   direction: 1 | -1 = 1;
 
   constructor(line: BusLine, startStopIndex: number, direction: 1 | -1 = 1) {

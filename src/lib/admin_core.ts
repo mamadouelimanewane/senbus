@@ -71,11 +71,12 @@ export class AdminCore {
   private tick() {
     const activeIncidents = this.checkIncidents()
     this.buses.forEach(bus => {
-      const isBroken = activeIncidents.some((inc:any) => inc.busId === bus.id); const health = this.fleetHealth.get(bus.id)
-      if (health && !isBroken) {
-        bus.progress += 0.0025 * (this.isStressTesting ? 2 : 1); if (bus.progress > 1) bus.progress = 0
+      const health = this.fleetHealth.get(bus.id)
+      // All buses move now, regardless of status, to satisfy demo requirements
+      bus.progress += 0.008 * (this.isStressTesting ? 1.5 : 1); if (bus.progress > 1) bus.progress = 0
+      if (health) {
         health.fuel = Math.max(0, health.fuel - 0.05); health.temp = Math.min(110, health.temp + (Math.random() * 0.1))
-      } else if (health) health.temp = Math.max(30, health.temp - 0.2)
+      }
     })
     if (this.currentView === 'command' && this.map) this.updateMapMarkers()
     else if (['dashboard','fleet','lines'].includes(this.currentView)) this.render()
