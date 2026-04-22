@@ -51,15 +51,15 @@ export class AdminCore {
       const network = await fetchNetwork()
       this.buses = localBuses || network.buses.filter(b => {
         const line = network.lines.find(l => l.id === b.lineId)
-        return line?.operatorId === this.operatorId
+        return line && (line.operatorId === this.operatorId || this.operatorId === 'ALL')
       })
-      this.lines = localLines || network.lines.filter(l => l.operatorId === this.operatorId)
+      this.lines = localLines || network.lines.filter(l => l.operatorId === this.operatorId || this.operatorId === 'ALL')
     } catch (err) {
       this.buses = localBuses || staticBuses.filter(b => {
         const line = staticLines.find(l => l.id === b.lineId)
-        return line?.operatorId === this.operatorId
+        return line && (line.operatorId === this.operatorId || this.operatorId === 'ALL')
       })
-      this.lines = localLines || staticLines.filter(l => l.operatorId === this.operatorId)
+      this.lines = localLines || staticLines.filter(l => l.operatorId === this.operatorId || this.operatorId === 'ALL')
     }
   }
 
@@ -214,7 +214,28 @@ export class AdminCore {
   }
 
   public setView(view: AdminView) { this.currentView = view; this.render(); if (view==='command') setTimeout(()=>this.initMap(),100) }
-  private initMap() { const el = document.getElementById('command-map'); if(!el || (window as any).L===undefined) return; this.map = (window as any).L.map('command-map').setView([14.7167, -17.4677], 13); (window as any).L.tileLayer('https://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(this.map); this.updateMapMarkers() }
+  private initMap() { 
+    const el = document.getElementById('command-map'); 
+    if(!el || (window as any).L===undefined) return; 
+    this.map = (window as any).L.map('command-map').setView([14.7167, -17.4677], 13); 
+    (window as any).L.tileLayer('https://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(this.map); 
+    
+    // Draw Active Geofence Polygon (Dakar Area)
+    const fenCoords: [number, number][] = [
+      [14.78, -17.53], [14.78, -17.40], [14.65, -17.40], [14.65, -17.53]
+    ];
+    (window as any).L.polygon(fenCoords, {
+        color: '#3b82f6',
+        weight: 3,
+        opacity: 0.8,
+        fillColor: '#2563eb',
+        fillOpacity: 0.05,
+        dashArray: '5, 10'
+    }).addTo(this.map).bindPopup("<b>Zone de Service Autorisée (Geofence)</b><br>Tout bus sortant déclenche une alerte.");
+    
+    this.updateMapMarkers() 
+  }
+
   private renderSidebar() {
     const links: { view: AdminView; label: string; icon: string }[] = [
       { view: 'dashboard', label: 'Surveillance', icon: 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z' },

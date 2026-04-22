@@ -1,7 +1,10 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { BUS_LINES } from './data';
-import type { BusLine } from './data'
+import type { BusLine } from './data';
+import { initPushNotifications } from './lib/push';
+
+initPushNotifications();
 
 // Map state
 let map: L.Map;
