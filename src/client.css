@@ -1,0 +1,362 @@
+:root {
+    --primary: #004a99; /* DDD Blue */
+    --accent: #2e7d32; /* Green */
+    --bg: #f9fafb;
+    --text: #1f2937;
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+    --tata-color: #f59e0b;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    overflow: hidden;
+    height: 100vh;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.view {
+    flex: 1;
+    display: none;
+    overflow-y: auto;
+    position: relative;
+    background: var(--bg);
+}
+
+.view.active {
+    display: block;
+}
+
+.padding-wrapper {
+    padding: 24px 16px;
+}
+
+/* Map specific */
+#map {
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+}
+
+.map-filters {
+    position: absolute;
+    top: 20px;
+    left: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    z-index: 1000;
+}
+
+.filter-group, .filter-group-alt {
+    display: inline-flex;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    padding: 4px;
+}
+.filter-group-alt {
+    margin-bottom: 20px;
+}
+
+.filter-group button, .filter-group-alt button {
+    border: none;
+    background: transparent;
+    padding: 8px 16px;
+    border-radius: 16px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    color: var(--text);
+}
+
+.filter-group button.active {
+    background: var(--primary);
+    color: white;
+}
+.filter-group-alt button.active {
+    background: var(--accent);
+    color: white;
+}
+
+.pill-info {
+    background: #38bdf8;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 700;
+    box-shadow: 0 4px 6px rgba(56, 189, 248, 0.2);
+}
+
+.map-bottom-controls {
+    position: absolute;
+    bottom: 20px;
+    left: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    z-index: 1000;
+}
+
+.btn-itineraire {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 14px 32px;
+    border-radius: 24px;
+    font-size: 16px;
+    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(0, 74, 153, 0.3);
+    cursor: pointer;
+}
+
+.btn-destination {
+    background: white;
+    color: var(--primary);
+    border: none;
+    padding: 12px 32px;
+    border-radius: 24px;
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+}
+
+/* Trajet */
+.route-header {
+    background: linear-gradient(90deg, #004a99 0%, #2e7d32 100%);
+    color: white;
+    padding: 24px 16px;
+    font-size: 20px;
+    font-weight: 800;
+}
+.trajet-card {
+    background: white;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+.trajet-field {
+    display: flex;
+    align-items: center;
+    padding: 12px 0;
+    gap: 12px;
+}
+.border-top {
+    border-top: 1px solid var(--border);
+}
+.dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+.dot-green { background: #22c55e; }
+.dot-red { background: #ef4444; }
+
+.trajet-field input {
+    flex: 1;
+    border: none;
+    font-size: 16px;
+    font-family: inherit;
+    outline: none;
+}
+.map-btn {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 6px;
+    cursor: pointer;
+}
+.btn-rechercher {
+    width: 100%;
+    background: #3b82f6;
+    color: white;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    margin-top: 16px;
+    cursor: pointer;
+}
+
+/* Typography general */
+.page-title {
+    font-size: 24px;
+    font-weight: 800;
+}
+.page-subtitle {
+    color: var(--text-muted);
+    margin-bottom: 16px;
+}
+
+.btn-see-map {
+    width: 100%;
+    background: #3b82f6;
+    color: white;
+    padding: 12px;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 20px;
+    cursor: pointer;
+}
+
+/* Lines List */
+.line-card {
+    background: white;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    border: 1px solid var(--border);
+}
+
+.line-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 800;
+    font-size: 18px;
+}
+
+.line-info {
+    flex: 1;
+}
+
+.line-name {
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 4px;
+}
+
+.line-stops {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.line-op {
+    font-weight: 800;
+    font-size: 14px;
+}
+
+/* Search */
+.search-title {
+    color: var(--accent);
+    font-size: 22px;
+    margin-bottom: 16px;
+}
+.search-bar {
+    border: 2px solid var(--primary);
+    border-radius: 12px;
+    padding: 12px 16px;
+    background: white;
+    margin-bottom: 24px;
+}
+.search-bar input {
+    border: none;
+    width: 100%;
+    outline: none;
+    font-size: 16px;
+    font-family: inherit;
+}
+
+/* Bottom Nav */
+.bottom-nav {
+    height: 64px;
+    background: white;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    width: 60px;
+}
+
+.nav-item.active {
+    color: var(--primary);
+}
+
+.nav-icon {
+    font-size: 20px;
+}
+
+.nav-item span {
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Route Result */
+.route-suggestion-card {
+    background: white;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    padding: 16px;
+}
+.route-time-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 12px;
+}
+.route-duration {
+    font-size: 24px;
+    font-weight: 800;
+    color: #10b981;
+}
+.route-arrival {
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 600;
+}
+.route-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.route-step {
+    font-size: 14px;
+}
+.btn-start-nav {
+    width: 100%;
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+}

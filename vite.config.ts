@@ -11,7 +11,8 @@ export default defineConfig({
         admin_aftu: resolve(__dirname, 'admin_aftu.html'),
         desktop: resolve(__dirname, 'desktop_pc.html'),
         super_admin: resolve(__dirname, 'super_admin.html'),
-        driver: resolve(__dirname, 'driver.html')
+        driver: resolve(__dirname, 'driver.html'),
+        client: resolve(__dirname, 'client.html')
       }
     }
   }
