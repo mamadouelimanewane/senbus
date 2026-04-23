@@ -1,6 +1,5 @@
 import L from 'leaflet';
 import { lines, stops } from './data/network';
-import { getLineRoadGeometry, GPS } from './lib/routing';
 
 // State
 let map: L.Map | null = null;
