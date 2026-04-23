@@ -188,19 +188,28 @@
     <script>
         // --- DATA & SIMULATION LOGIC ---
         const STOPS = {
-            PARCELLES: [-17.4347, 14.7569], LECLERC: [-17.4330, 14.6680], LIBERTE_5: [-17.4520, 14.7110],
-            OUAKAM: [-17.4892, 14.7239], PALAIS: [-17.4384, 14.6605], AEROPORT: [-17.4900, 14.7394],
-            KEUR_MASSAR: [-17.3119, 14.7864], RUFISQUE: [-17.2667, 14.7167], YENNE: [-17.2000, 14.6500],
-            GUEDIAWAYE: [-17.4000, 14.7833], THIAROYE: [-17.3600, 14.7550], ALMADIES: [-17.5208, 14.7422]
+            PARCELLES: [-17.4400, 14.7600], LECLERC: [-17.4339, 14.6683], LIBERTE_5: [-17.4450, 14.7150],
+            OUAKAM: [-17.4880, 14.7210], PALAIS_1: [-17.4320, 14.6650], PALAIS_2: [-17.4330, 14.6640], 
+            AEROPORT: [-17.4800, 14.7400], KEUR_MASSAR: [-17.3000, 14.7800], RUFISQUE: [-17.2700, 14.7100], 
+            YENNE: [-17.1500, 14.6500], GUEDIAWAYE: [-17.3900, 14.7800], THIAROYE: [-17.3700, 14.7400], 
+            ALMADIES: [-17.5100, 14.7500], INDEPENDANCE: [-17.4360, 14.6690], LAT_DIOR: [-17.4380, 14.6750],
+            SANDAGA: [-17.4380, 14.6720], CASTORS: [-17.4300, 14.7100], MAMELLES: [-17.4900, 14.7200],
+            NGOR: [-17.4900, 14.7500], UCAD: [-17.4600, 14.6900], FANN: [-17.4650, 14.6880],
+            DIEUPPEUL: [-17.4500, 14.7100], LIBERTE_6: [-17.4400, 14.7200], JET_EAU: [-17.4420, 14.7050],
+            DIOR: [-17.4350, 14.7550], SCAT_URBAM: [-17.4300, 14.7400], PATTE_OIE: [-17.4200, 14.7300],
+            STADE_LSS: [-17.4100, 14.7400], CAMBARENE_2: [-17.4100, 14.7600], DAROUKHANE: [-17.3800, 14.7900],
+            PIKINE: [-17.4000, 14.7500], BAUX_MARAICHERS: [-17.4000, 14.7300], GADAYE: [-17.3700, 14.7800],
+            MALIKA: [-17.3300, 14.8000], BARGNY: [-17.2300, 14.7000], DIAMNIADIO: [-17.1500, 14.7000],
+            JAXAAY: [-17.2800, 14.7500], BAYAKH: [-17.2000, 14.7900], SANGALKAM: [-17.2300, 14.7500]
         };
 
         const LINES = [
-            { id: "1", name: "Parcelles ↔ Leclerc", color: "#d90429", points: [STOPS.PARCELLES, [-17.447, 14.752], [-17.46, 14.738], [-17.465, 14.710], [-17.454, 14.693], STOPS.LECLERC] },
-            { id: "4", name: "Liberté 5 ↔ Leclerc", color: "#38bdf8", points: [STOPS.LIBERTE_5, [-17.45, 14.73], [-17.46, 14.69], STOPS.LECLERC] },
-            { id: "7", name: "Ouakam ↔ Palais", color: "#10b981", points: [STOPS.OUAKAM, [-17.46, 14.69], [-17.44, 14.67], STOPS.PALAIS] },
-            { id: "8", name: "Aéroport ↔ Palais", color: "#f59e0b", points: [STOPS.AEROPORT, [-17.44, 14.74], [-17.44, 14.68], STOPS.PALAIS] },
-            { id: "11", name: "Keur Massar ↔ Lat Dior", color: "#ef233c", points: [STOPS.KEUR_MASSAR, STOPS.THIAROYE, [-17.44, 14.68], STOPS.PALAIS] },
-            { id: "15", name: "Rufisque ↔ Palais", color: "#0ea5e9", points: [STOPS.RUFISQUE, STOPS.THIAROYE, [-17.43, 14.70], STOPS.PALAIS] }
+            { id: "1", name: "Parcelles ↔ Leclerc", color: "#d90429", points: [STOPS.PARCELLES, STOPS.DIOR, STOPS.STADE_LSS, STOPS.PATTE_OIE, STOPS.UCAD, STOPS.SANDAGA, STOPS.LECLERC] },
+            { id: "4", name: "Liberté 5 ↔ Leclerc", color: "#38bdf8", points: [STOPS.LIBERTE_5, STOPS.DIEUPPEUL, STOPS.JET_EAU, STOPS.UCAD, STOPS.SANDAGA, STOPS.LECLERC] },
+            { id: "7", name: "Ouakam ↔ Palais 2", color: "#10b981", points: [STOPS.OUAKAM, STOPS.MAMELLES, STOPS.UCAD, STOPS.SANDAGA, STOPS.PALAIS_2] },
+            { id: "8", name: "Aéroport ↔ Palais 2", color: "#f59e0b", points: [STOPS.AEROPORT, STOPS.NGOR, STOPS.STADE_LSS, STOPS.UCAD, STOPS.PALAIS_2] },
+            { id: "11", name: "Keur Massar ↔ Lat Dior", color: "#ef233c", points: [STOPS.KEUR_MASSAR, STOPS.THIAROYE, STOPS.PIKINE, STOPS.LAT_DIOR] },
+            { id: "15", name: "Rufisque ↔ Palais 1", color: "#0ea5e9", points: [STOPS.RUFISQUE, STOPS.JAXAAY, STOPS.THIAROYE, STOPS.PALAIS_1] }
         ];
 
         let map, buses = [], simulationSpeed = 1;
