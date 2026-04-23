@@ -1,7 +1,7 @@
 import { fetchNetwork } from './api'
 import type { Bus, Line } from '../types'
 import { buses as staticBuses, lines as staticLines } from '../data/network'
-import { getLineRoadGeometry, interpolate } from './routing'
+import { getLineRoadGeometry, interpolate, GPS } from './routing'
 
 export type AdminView = 'dashboard' | 'fleet' | 'lines' | 'command' | 'alerts' | 'geofencing'
 
@@ -233,6 +233,26 @@ export class AdminCore {
         dashArray: '5, 10'
     }).addTo(this.map).bindPopup("<b>Zone de Service Autorisée (Geofence)</b><br>Tout bus sortant déclenche une alerte.");
     
+    // Draw Stop Markers (Pins)
+    const pinIcon = (window as any).L.divIcon({
+        className: '',
+        html: `<svg width="24" height="24" viewBox="0 0 24 24" fill="#ef4444" stroke="white" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5" fill="white"/></svg>`,
+        iconSize: [24, 24], iconAnchor: [12, 24]
+    });
+
+    const renderedStops = new Set<string>();
+    this.lines.forEach(line => {
+        line.stopIds.forEach(stopId => {
+            if (!renderedStops.has(stopId) && GPS[stopId]) {
+                renderedStops.add(stopId);
+                const coord = GPS[stopId];
+                (window as any).L.marker(coord, { icon: pinIcon })
+                    .bindPopup(`<b>Station ${stopId}</b><br><small>Passages fréquents</small>`)
+                    .addTo(this.map);
+            }
+        });
+    });
+
     this.updateMapMarkers() 
   }
 

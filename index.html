@@ -243,6 +243,21 @@
             map = L.map('map', { zoomControl: false }).setView([14.72, -17.40], 12);
             L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png').addTo(map);
 
+            // Add Red Pin Markers for all Stops
+            const pinIcon = L.divIcon({
+                className: '',
+                html: `<svg width="28" height="28" viewBox="0 0 24 24" fill="#d90429" stroke="white" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5" fill="white"/></svg>`,
+                iconSize: [28, 28], iconAnchor: [14, 28]
+            });
+
+            for (const key in STOPS) {
+                const coord = STOPS[key];
+                // Leaflet takes [Lat, Lng], STOPS has [Lng, Lat]
+                L.marker([coord[1], coord[0]], { icon: pinIcon })
+                    .bindPopup(`<b>Station ${key.replace('_', ' ')}</b>`)
+                    .addTo(map);
+            }
+
             const list = document.getElementById('line-list');
             
             // Parallel road fetching to avoid blocking the UI
