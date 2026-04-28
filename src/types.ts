@@ -11,7 +11,7 @@ export type Line = {
   id: string
   code: string
   name: string
-  operatorId: 'DDD' | 'AFTU-TATA'
+  operatorId: 'DDD' | 'TATA' | 'AFTU-TATA'
   headsign: string
   color: string
   stopIds: string[]
@@ -26,7 +26,7 @@ export type Bus = {
   speedFactor: number
   capacity: number
   passengers: number
-  plate: string
+  plate?: string
   nextStopId?: string
 }
 

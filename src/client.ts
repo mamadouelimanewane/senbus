@@ -1,7 +1,7 @@
 import L from 'leaflet';
 import { lines, stops, buses } from './data/network';
 import { DAKAR_LANDMARKS } from './data/landmarks';
-import type { Stop, Line, Bus } from './types';
+import type { Stop } from './types';
 
 // --- State ---
 let map: L.Map | null = null;
@@ -68,6 +68,19 @@ function initApp() {
             renderStatusBoard(pill.getAttribute('data-op') || 'all');
         });
     });
+
+    // Theme Toggle
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.body.setAttribute('data-theme', savedTheme);
+        themeToggle.addEventListener('click', () => {
+            const current = document.body.getAttribute('data-theme');
+            const target = current === 'light' ? 'dark' : 'light';
+            document.body.setAttribute('data-theme', target);
+            localStorage.setItem('theme', target);
+        });
+    }
 
     renderStatusBoard();
     setupItineraryPlanner();
@@ -244,7 +257,7 @@ function renderStopsOnMap() {
     });
 }
 
-function showStationInfo(stopId: string) {
+(window as any).showStationInfo = function(stopId: string) {
     const stop = stops.find(s => s.id === stopId);
     if (!stop) return;
 
@@ -275,14 +288,17 @@ function showStationInfo(stopId: string) {
         </div>
         
         <div class="countdown-list">
-            ${passages.map(p => `
+            ${arrivals.map(a => `
                 <div class="countdown-item">
                     <div style="display:flex; align-items:center; gap:12px;">
-                        <div class="line-badge-lg" style="background:${p.color}; width:36px; height:36px; font-size:14px; border-radius:8px;">${p.code}</div>
-                        <div style="font-weight:700;">Direction ...</div>
+                        <div class="line-badge-lg" style="background:${a.line.color}; width:36px; height:36px; font-size:14px; border-radius:8px;">${a.line.code}</div>
+                        <div>
+                            <div style="font-weight:700;">Vers ${a.line.headsign}</div>
+                            <div style="font-size:11px; color:#8e8e93;">Rempli à ${a.b.passengers}%</div>
+                        </div>
                     </div>
-                    <div class="countdown-time ${p.time <= 2 ? 'imminent' : ''}">
-                        ${p.time === 0 ? 'À quai' : p.time + ' min'}
+                    <div class="countdown-time ${a.minutes <= 2 ? 'imminent' : ''}">
+                        ${a.minutes === 0 ? 'À quai' : a.minutes + ' min'}
                     </div>
                 </div>
             `).join('')}
