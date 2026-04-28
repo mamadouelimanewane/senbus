@@ -1,7 +1,7 @@
 import { stops, lines, buses } from '../data/network'
 import { DAKAR_LANDMARKS } from '../data/landmarks'
 import type { ApiNetwork, ApiSnapshot, Bus, Line, PlannerJourney, Prediction, RouteMetrics, SearchResult, Stop } from '../types'
-import { GPS, getDistanceKm, roadCache } from './routing'
+import { roadCache } from './routing'
 
 export const stopById = new Map(stops.map((stop) => [stop.id, stop]))
 export const lineById = new Map(lines.map((line) => [line.id, line]))
@@ -44,8 +44,6 @@ export function getRouteMetrics(line: Line): RouteMetrics {
   if (road) {
     const stopRatios: Record<string, number> = {}
     line.stopIds.forEach((id, index) => {
-      // Trouver l'indice du stop dans la polyline (approximation par l'id du stop)
-      // On simplifie en utilisant l'index relatif des stops originaux sur la distance totale
       stopRatios[id] = index / (line.stopIds.length - 1) 
     })
     
@@ -59,33 +57,23 @@ export function getRouteMetrics(line: Line): RouteMetrics {
     return metrics
   }
 
-  const points = line.stopIds
-    .map((stopId) => stopById.get(stopId))
-    .filter((stop): stop is Stop => Boolean(stop))
-
-  const segments: number[] = []
-  let totalLength = 0
-
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const current = points[index]
-    const next = points[index + 1]
-    const c1 = GPS[current.id], c2 = GPS[next.id]
-    const length = (c1 && c2) ? getDistanceKm(c1[0], c1[1], c2[0], c2[1]) : Math.hypot(next.x - current.x, next.y - current.y)
-    segments.push(length)
-    totalLength += length
-  }
-
+  // Fallback: estimation basée sur la vitesse moyenne (~21 km/h = 350m/min)
+  const estimatedLength = line.baseMinutes * 350
   const stopRatios: Record<string, number> = {}
-  let traveled = 0
-  points.forEach((point, index) => {
-    stopRatios[point.id] = totalLength === 0 ? 0 : traveled / totalLength
-    traveled += segments[index] ?? 0
+  line.stopIds.forEach((id, index) => {
+    stopRatios[id] = index / (line.stopIds.length - 1)
   })
 
-  const metrics = { points, segments, totalLength, stopRatios }
+  const metrics = {
+    points: line.stopIds.map(id => stopById.get(id)!).filter(Boolean),
+    segments: line.stopIds.map(() => estimatedLength / (line.stopIds.length - 1)),
+    totalLength: estimatedLength,
+    stopRatios
+  }
   routeCache.set(line.id, metrics)
   return metrics
 }
+
 
 export function getPointAlongLine(line: Line, progress: number): { x: number; y: number } {
   // Cette fonction est devenue secondaire car main.ts utilise interpolate() de routing.ts
@@ -150,10 +138,11 @@ export function escapeHtml(value: string): string {
  */
 export function calculateFare(distanceMeters: number): number {
   const km = distanceMeters / 1000
-  if (km < 5) return 150
-  if (km < 12) return 200
-  if (km < 20) return 300
-  if (km < 30) return 400
+  if (km < 3) return 150
+  if (km < 7) return 200
+  if (km < 12) return 250
+  if (km < 18) return 300
+  if (km < 25) return 400
   return 500
 }
 
@@ -287,10 +276,17 @@ export function getSearchResults(query: string, filter: 'all' | 'DDD' | 'AFTU' =
   return [...matchedStops, ...matchedLines, ...matchedLandmarks]
 }
 
+function getSegmentDistance(line: Line, fromStopId: string, toStopId: string): number {
+  const { totalLength, stopRatios } = getRouteMetrics(line)
+  const fromRatio = stopRatios[fromStopId] ?? (line.stopIds.indexOf(fromStopId) / (line.stopIds.length - 1))
+  const toRatio = stopRatios[toStopId] ?? (line.stopIds.indexOf(toStopId) / (line.stopIds.length - 1))
+  return Math.abs(toRatio - fromRatio) * totalLength
+}
+
 function getSegmentDuration(line: Line, fromStopId: string, toStopId: string): number | null {
   const fromIndex = line.stopIds.indexOf(fromStopId)
   const toIndex = line.stopIds.indexOf(toStopId)
-  if (fromIndex === -1 || toIndex === -1 || fromIndex >= toIndex) {
+  if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) {
     return null
   }
 
@@ -298,8 +294,7 @@ function getSegmentDuration(line: Line, fromStopId: string, toStopId: string): n
   const fromRatio = stopRatios[fromStopId] ?? (fromIndex / (line.stopIds.length - 1))
   const toRatio = stopRatios[toStopId] ?? (toIndex / (line.stopIds.length - 1))
   
-  const ratioDiff = toRatio - fromRatio
-  if (ratioDiff <= 0) return null
+  const ratioDiff = Math.abs(toRatio - fromRatio)
   
   return Math.max(4, Math.round(ratioDiff * line.baseMinutes))
 }
@@ -317,7 +312,7 @@ export function getNearestStop(x: number, y: number): Stop {
   return bestStop
 }
 
-export function getNearbyStops(stopId: string, radius: number = 4): Stop[] {
+export function getNearbyStops(stopId: string, radius: number = 8): Stop[] {
   const target = stopById.get(stopId)
   if (!target) return []
   return stops.filter(s => {
@@ -326,8 +321,8 @@ export function getNearbyStops(stopId: string, radius: number = 4): Stop[] {
   })
 }
 
-export function findJourneys(originId: string, destinationId: string): PlannerJourney[] {
-  if (originId === destinationId) return []
+export function findJourneys(originId: string, destinationId: string, depth: number = 0): PlannerJourney[] {
+  if (originId === destinationId || depth > 1) return []
 
   const origin = getStop(originId)
   const destination = getStop(destinationId)
@@ -336,8 +331,8 @@ export function findJourneys(originId: string, destinationId: string): PlannerJo
   const journeys: PlannerJourney[] = []
   
   // 1. Cluster hubs: find stops near origin and destination
-  const origins = getNearbyStops(originId, 4)
-  const destinations = getNearbyStops(destinationId, 4)
+  const origins = getNearbyStops(originId, 8)
+  const destinations = getNearbyStops(destinationId, 8)
 
   // 2. Search for direct lines between any origin-cluster stop and any destination-cluster stop
   origins.forEach(o => {
@@ -345,6 +340,7 @@ export function findJourneys(originId: string, destinationId: string): PlannerJo
       lines.forEach(line => {
         const durationMin = getSegmentDuration(line, o.id, d.id)
         if (durationMin !== null) {
+          const dist = getSegmentDistance(line, o.id, d.id)
           const segments = []
           if (o.id !== originId) segments.push({ kind: 'walk' as any, fromStop: origin, toStop: o, durationMin: 5 })
           segments.push({ kind: 'direct' as any, line, fromStop: o, toStop: d, durationMin })
@@ -352,6 +348,7 @@ export function findJourneys(originId: string, destinationId: string): PlannerJo
           
           journeys.push({
             totalDurationMin: durationMin + (o.id !== originId ? 5 : 0) + (d.id !== destinationId ? 5 : 0),
+            totalDistanceMeters: dist + (o.id !== originId ? 400 : 0) + (d.id !== destinationId ? 400 : 0),
             segments
           })
         }
@@ -359,7 +356,7 @@ export function findJourneys(originId: string, destinationId: string): PlannerJo
     })
   })
 
-  // 3. Search for 1-transfer journeys
+  // 3. Search for 1-transfer journeys (Shared stops or Walking transfers)
   origins.forEach(o => {
     const oLines = getServingLines(o.id)
     destinations.forEach(d => {
@@ -368,7 +365,8 @@ export function findJourneys(originId: string, destinationId: string): PlannerJo
       oLines.forEach(l1 => {
         dLines.forEach(l2 => {
           if (l1.id === l2.id) return
-          // Find intersection
+          
+          // Option A: Shared stops
           const shared = l1.stopIds.filter(id => l2.stopIds.includes(id))
           shared.forEach(tId => {
             if (tId === o.id || tId === d.id) return
@@ -376,18 +374,51 @@ export function findJourneys(originId: string, destinationId: string): PlannerJo
             const d2 = getSegmentDuration(l2, tId, d.id)
             const tStop = getStop(tId)
             if (d1 !== null && d2 !== null && tStop) {
+              const dist1 = getSegmentDistance(l1, o.id, tId)
+              const dist2 = getSegmentDistance(l2, tId, d.id)
               const segments = []
               if (o.id !== originId) segments.push({ kind: 'walk' as any, fromStop: origin, toStop: o, durationMin: 5 })
               segments.push({ kind: 'transfer' as any, line: l1, fromStop: o, toStop: tStop, durationMin: d1 })
               segments.push({ kind: 'transfer' as any, line: l2, fromStop: tStop, toStop: d, durationMin: d2 })
               if (d.id !== destinationId) segments.push({ kind: 'walk' as any, fromStop: d, toStop: destination, durationMin: 5 })
               
-              journeys.push({
-                totalDurationMin: d1 + d2 + 12,
-                segments
+              journeys.push({ 
+                totalDurationMin: d1 + d2 + 40, 
+                totalDistanceMeters: dist1 + dist2 + (o.id !== originId ? 400 : 0) + (d.id !== destinationId ? 400 : 0),
+                segments 
               })
             }
           })
+
+          // Option B: Walking transfers (stops within 6 units)
+          if (shared.length === 0) {
+            l1.stopIds.forEach(sId1 => {
+              const s1 = getStop(sId1)!
+              l2.stopIds.forEach(sId2 => {
+                const s2 = getStop(sId2)!
+                const dist = Math.sqrt(Math.pow(s1.x - s2.x, 2) + Math.pow(s1.y - s2.y, 2))
+                if (dist <= 6 && sId1 !== o.id && sId2 !== d.id) {
+                    const d1 = getSegmentDuration(l1, o.id, sId1)
+                    const d2 = getSegmentDuration(l2, sId2, d.id)
+                    if (d1 !== null && d2 !== null) {
+                        const dist1 = getSegmentDistance(l1, o.id, sId1)
+                        const dist2 = getSegmentDistance(l2, sId2, d.id)
+                        const segments = []
+                        if (o.id !== originId) segments.push({ kind: 'walk' as any, fromStop: origin, toStop: o, durationMin: 5 })
+                        segments.push({ kind: 'transfer' as any, line: l1, fromStop: o, toStop: s1, durationMin: d1 })
+                        segments.push({ kind: 'walk' as any, fromStop: s1, toStop: s2, durationMin: Math.round(dist * 2) })
+                        segments.push({ kind: 'transfer' as any, line: l2, fromStop: s2, toStop: d, durationMin: d2 })
+                        if (d.id !== destinationId) segments.push({ kind: 'walk' as any, fromStop: d, toStop: destination, durationMin: 5 })
+                        journeys.push({ 
+                            totalDurationMin: d1 + d2 + 45 + Math.round(dist * 2), 
+                            totalDistanceMeters: dist1 + dist2 + (dist * 1000) + (o.id !== originId ? 400 : 0) + (d.id !== destinationId ? 400 : 0),
+                            segments 
+                        })
+                    }
+                }
+              })
+            })
+          }
         })
       })
     })
@@ -395,14 +426,15 @@ export function findJourneys(originId: string, destinationId: string): PlannerJo
 
   // 4. Fallback: if still nothing, try 1-transfer between ANY line from origin cluster and ANY line from destination cluster via a hub
   if (journeys.length === 0) {
-    const hubs = ['palais', 'petersen', 'colobane', 'pikine']
+    const hubs = ['palais1', 'palais2', 'petersen', 'colobane', 'pikine', 'sandaga', 'ucad', 'patte_oie']
     hubs.forEach(hId => {
        if (hId === originId || hId === destinationId) return
-       const toHub = findJourneys(originId, hId)[0]
-       const fromHub = findJourneys(hId, destinationId)[0]
+       const toHub = findJourneys(originId, hId, depth + 1)[0]
+       const fromHub = findJourneys(hId, destinationId, depth + 1)[0]
        if (toHub && fromHub) {
          journeys.push({
            totalDurationMin: toHub.totalDurationMin + fromHub.totalDurationMin,
+           totalDistanceMeters: (toHub.totalDistanceMeters || 0) + (fromHub.totalDistanceMeters || 0),
            segments: [...toHub.segments, ...fromHub.segments]
          })
        }
@@ -411,7 +443,12 @@ export function findJourneys(originId: string, destinationId: string): PlannerJo
 
   return journeys
     .filter((v, i, a) => a.findIndex(t => t.totalDurationMin === v.totalDurationMin && t.segments.length === v.segments.length) === i)
-    .sort((a, b) => a.totalDurationMin - b.totalDurationMin)
+    .sort((a, b) => {
+      const aLegs = a.segments.filter(s => s.kind === 'direct' || s.kind === 'transfer').length
+      const bLegs = b.segments.filter(s => s.kind === 'direct' || s.kind === 'transfer').length
+      if (aLegs !== bLegs) return aLegs - bLegs
+      return a.totalDurationMin - b.totalDurationMin
+    })
     .slice(0, 8)
 }
 

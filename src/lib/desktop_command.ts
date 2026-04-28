@@ -1,11 +1,12 @@
 import { lines, buses } from '../data/network'
-import { getFullRoadPathSync, interpolate } from './routing'
+import { getLineRoadGeometry, interpolate, cleanAllGeometries } from './routing'
 
 export class DesktopCommandCenter {
   private map: any = null
   private root: HTMLElement
   private busMarkers: Map<string, any> = new Map()
   private linePolylines: Map<string, any> = new Map()
+  private simulationSpeed: number = 1.0
 
   constructor(containerId: string) {
     this.root = document.getElementById(containerId)!
@@ -13,6 +14,7 @@ export class DesktopCommandCenter {
   }
 
   private init() {
+    cleanAllGeometries()
     this.renderLayout()
     setTimeout(() => this.initMap(), 100)
     setInterval(() => this.updateBuses(), 1000)
@@ -36,7 +38,7 @@ export class DesktopCommandCenter {
 
   private drawAllLines() {
     lines.forEach(line => {
-      const road = getFullRoadPathSync(line.stopIds)
+      const road = getLineRoadGeometry(line.id, line.stopIds)
       if (road.coords.length > 1) {
         // @ts-ignore
         const poly = L.polyline(road.coords, {
@@ -59,11 +61,11 @@ export class DesktopCommandCenter {
       const line = lines.find(l => l.id === bus.lineId)
       if (!line) return
 
-      const road = getFullRoadPathSync(line.stopIds)
+      const road = getLineRoadGeometry(line.id, line.stopIds)
       if (road.coords.length < 2) return
 
       // Simulation de mouvement
-      bus.progress += 0.0005 * bus.speedFactor
+      bus.progress += 0.0005 * bus.speedFactor * this.simulationSpeed
       if (bus.progress > 1) bus.progress = 0
 
       const [lat, lng] = interpolate(road, bus.progress)
@@ -125,6 +127,13 @@ export class DesktopCommandCenter {
             </div>
           </div>
           <div id="pc-stats" class="pc-stats-row"></div>
+          
+          <div class="pc-control-group">
+            <span class="label">VITESSE SIMULATION</span>
+            <input type="range" id="speed-slider" min="0" max="50" step="1" value="${this.simulationSpeed * 10}">
+            <span class="value" id="speed-value">x${this.simulationSpeed}</span>
+          </div>
+
           <div class="pc-clock" id="pc-clock">--:--:--</div>
         </header>
 
@@ -134,16 +143,8 @@ export class DesktopCommandCenter {
                 <h2>Réseau Urbain</h2>
                 <input type="text" placeholder="Rechercher une ligne..." class="pc-search">
             </div>
-            <div class="pc-line-list">
-              ${lines.map(l => `
-                <div class="pc-line-item" data-line-id="${l.id}">
-                  <span class="line-badge" style="background:${l.color}">${l.code}</span>
-                  <div class="line-info">
-                    <span class="line-name">${l.name}</span>
-                    <span class="line-status">EN OPÉRATION</span>
-                  </div>
-                </div>
-              `).join('')}
+            <div class="pc-line-list" id="pc-line-list">
+              ${this.renderLineList(lines)}
             </div>
           </div>
           <div class="pc-map-wrapper">
@@ -168,12 +169,29 @@ export class DesktopCommandCenter {
     }, 1000)
     
     // Add interactions
-    this.root.querySelectorAll('.pc-line-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const id = (item as HTMLElement).dataset.lineId!
-            this.focusLine(id)
+    this.setupListListeners()
+
+    const searchInput = this.root.querySelector('.pc-search') as HTMLInputElement
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.toLowerCase()
+            const filtered = lines.filter(l => l.code.toLowerCase().includes(query) || l.name.toLowerCase().includes(query))
+            const listEl = document.getElementById('pc-line-list')
+            if (listEl) {
+                listEl.innerHTML = this.renderLineList(filtered)
+                this.setupListListeners()
+            }
         })
-    })
+    }
+
+    const slider = document.getElementById('speed-slider') as HTMLInputElement
+    const speedVal = document.getElementById('speed-value')
+    if (slider && speedVal) {
+        slider.addEventListener('input', () => {
+            this.simulationSpeed = parseInt(slider.value) / 10
+            speedVal.innerText = `x${this.simulationSpeed.toFixed(1)}`
+        })
+    }
   }
 
   private focusLine(lineId: string) {
@@ -196,5 +214,26 @@ export class DesktopCommandCenter {
         entry.innerText = `[CMD] Focus : Ligne ${line.code} (${line.name})`
         log.prepend(entry)
     }
+  }
+
+  private renderLineList(linesToRender: any[]): string {
+    return linesToRender.map(l => `
+      <div class="pc-line-item" data-line-id="${l.id}">
+        <span class="line-badge" style="background:${l.color}">${l.code}</span>
+        <div class="line-info">
+          <span class="line-name">${l.name}</span>
+          <span class="line-status">EN OPÉRATION</span>
+        </div>
+      </div>
+    `).join('')
+  }
+
+  private setupListListeners() {
+    this.root.querySelectorAll('.pc-line-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const id = (item as HTMLElement).dataset.lineId!
+            this.focusLine(id)
+        })
+    })
   }
 }

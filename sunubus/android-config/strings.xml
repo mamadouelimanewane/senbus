@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SunuBus</string>
+    <string name="title_activity_main">SunuBus</string>
+    <string name="package_name">sn.sunubus.voyageur</string>
+    <string name="custom_url_scheme">sn.sunubus.voyageur</string>
+</resources>

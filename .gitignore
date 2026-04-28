@@ -30,3 +30,8 @@ android/app/src/main/assets/capacitor.config.json
 android/capacitor-cordova-android-plugins
 capacitor-cordova-android-plugins
 
+# SunuBus specific
+*.apk
+scratch/
+.gemini/
+

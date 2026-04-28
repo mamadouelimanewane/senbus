@@ -1,0 +1,16 @@
+{
+  "name": "SunuBus — Voyageur",
+  "short_name": "SunuBus",
+  "description": "Suivi des bus DDD et TATA en temps réel à Dakar",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F6E56",
+  "theme_color": "#0F6E56",
+  "orientation": "portrait",
+  "lang": "fr",
+  "icons": [
+    { "src": "/icon.svg",     "type": "image/svg+xml", "sizes": "any" },
+    { "src": "/icon-192.png", "type": "image/png",     "sizes": "192x192" },
+    { "src": "/icon-512.png", "type": "image/png",     "sizes": "512x512" }
+  ]
+}

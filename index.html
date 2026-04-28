@@ -2,341 +2,180 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DDD Command & Control - Operations Center</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>SunuBus v6 — Dakar Mobility</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        :root {
-            --primary: #d90429;
-            --sidebar-w: 280px;
-            --bg: #f3f4f6;
-            --surface: #ffffff;
-            --text: #1f2937;
-            --text-muted: #6b7280;
-            --border: #e5e7eb;
-            --accent: #2563eb;
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; }
-
-        /* Navigation Sidebar */
-        .nav-sidebar { 
-            width: var(--sidebar-w); background: #111827; height: 100vh; display: flex; flex-direction: column; color: white; padding: 20px 0;
-            flex-shrink: 0;
-        }
-        .nav-brand { padding: 0 25px 30px; display: flex; align-items: center; gap: 12px; }
-        .nav-brand img { width: 40px; }
-        .nav-brand h2 { font-family: 'Outfit'; font-size: 18px; }
-
-        .nav-menu { flex: 1; }
-        .nav-item { 
-            padding: 12px 25px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-size: 14px; font-weight: 600;
-            color: #9ca3af; transition: 0.2s;
-        }
-        .nav-item:hover { background: #1f2937; color: white; }
-        .nav-item.active { background: var(--primary); color: white; }
-
-        /* Main Workspace */
-        .workspace { flex: 1; display: flex; flex-direction: column; }
-        .top-bar { height: 70px; background: white; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 30px; }
-        .top-bar h1 { font-family: 'Outfit'; font-size: 20px; font-weight: 800; }
-
-        /* Content Areas */
-        .view-container { flex: 1; position: relative; display: none; overflow-y: auto; }
-        .view-container.active { display: flex; }
-
-        /* Module: Live Map (Simulation) */
-        #map-view { position: relative; }
-        #map { width: 100%; height: 100%; background: #eee; }
-        .map-overlay-sidebar { 
-            position: absolute; top: 20px; left: 20px; width: 340px; background: rgba(255,255,255,0.95); 
-            backdrop-filter: blur(10px); border-radius: 16px; border: 1px solid var(--border); z-index: 1000; padding: 20px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-height: calc(100% - 40px); overflow-y: auto;
-            cursor: grab;
-        }
-        
-        /* Module: Dashboard */
-        #dashboard-view { padding: 30px; grid-template-columns: repeat(4, 1fr); gap: 20px; display: none; }
-        #dashboard-view.active { display: grid; }
-        .card { background: white; padding: 25px; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
-        .card h3 { font-size: 12px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px; }
-        .card p { font-size: 32px; font-family: 'Outfit'; font-weight: 800; color: var(--text); }
-        .trend { font-size: 12px; color: #10b981; font-weight: 700; margin-top: 10px; }
-
-        /* Specific Simulation Elements */
-        .line-item { 
-            padding: 12px; border-radius: 10px; margin-bottom: 8px; border: 1px solid var(--border); cursor: pointer; transition: 0.2s;
-            display: flex; align-items: center; justify-content: space-between; background: white;
-        }
-        .line-item:hover { border-color: var(--primary); }
-        .bus-unit { cursor: pointer; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2)); }
-        .bus-circle { width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; display: flex; align-items: center; justify-content: center; color: white; font-weight: 900; font-size: 11px; }
-
-        /* Speed Control */
-        .sim-control { background: #f9fafb; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
-        .sim-control input { width: 100%; border:0; }
-
-        /* Ticketing Mock */
-        .qr-mock { width: 150px; height: 150px; background: #eee; border-radius: 10px; margin: 20px auto; display: flex; align-items: center; justify-content: center; text-align: center; }
-    </style>
+    <link rel="stylesheet" href="./src/client.css" />
 </head>
 <body>
-    <nav class="nav-sidebar">
-        <div class="nav-brand">
-            <img src="/logo.png" onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/e/e0/Flag_of_Senegal.svg'">
-            <h2>DDD CONTROL</h2>
-        </div>
-        <div class="nav-menu">
-            <div class="nav-item active" onclick="showView('map-view')">🛰️ Opérations Live</div>
-            <div class="nav-item" onclick="showView('dashboard-view')">📊 État du Réseau</div>
-            <div class="nav-item" onclick="showView('fleet-view')">🚍 Gestion de Flotte</div>
-            <div class="nav-item" onclick="showView('tickets-view')">🎫 Services Voyageurs</div>
-            <div class="nav-item" onclick="showView('settings-view')">⚙️ Configuration</div>
-        </div>
-        <div style="padding: 20px; font-size: 11px; color: #4b5563;">
-            v6.0-enterprise • Mode Simulation
-        </div>
-    </nav>
-
-    <div class="workspace">
-        <header class="top-bar">
-            <h1 id="view-title">Opérations Live - Réseau Urbain</h1>
-            <div style="display: flex; align-items: center; gap: 20px;">
-                <div style="text-align: right;">
-                    <p style="font-size: 12px; font-weight: 700;">Admin Système</p>
-                    <p id="clock" style="font-size: 11px; color: var(--text-muted);">21:40:00</p>
+    <div id="app">
+        <!-- PHASE 1: STATUS BOARD & RECHERCHE (ACCUEIL) -->
+        <main id="view-accueil" class="view active">
+            <div class="view-header-gradient">
+                <h2>SunuBus v6</h2>
+                <div class="search-bar-glass" style="margin-top: 20px; box-shadow: none; background: rgba(255,255,255,0.2);">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input type="text" placeholder="Où allez-vous ?" style="color: white;" onfocus="window.switchView('trajet')"/>
                 </div>
-                <div style="width: 40px; height: 40px; border-radius: 50%; background: #e5e7eb; border: 1px solid var(--border);"></div>
             </div>
-        </header>
 
-        <!-- View: Live Map -->
-        <div id="map-view" class="view-container active">
-            <div class="map-overlay-sidebar">
-                <div class="sim-control">
-                    <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; margin-bottom: 10px;">
-                        <span>VITESSE DE SIMULATION</span>
-                        <span id="speed-ind">1.0x</span>
+            <div class="section-title">
+                État du réseau <span class="live-badge"><div class="live-indicator" style="background:white; width:6px; height:6px;"></div> LIVE</span>
+            </div>
+            <div id="status-filters" class="operator-filters">
+                <button class="op-pill active" data-op="all"><span>🌐</span> Toutes</button>
+                <button class="op-pill" data-op="DDD"><span style="color:#004a99;">🔵</span> DDD</button>
+                <button class="op-pill" data-op="TATA"><span style="color:#e63946;">🔴</span> AFTU</button>
+            </div>
+            <div id="status-board" class="status-board">
+                <!-- Rempli par TS : Status Board style TfL -->
+            </div>
+
+            <div class="section-title">
+                Mes Favoris <span class="see-all">Voir tout</span>
+            </div>
+            <div id="favorites-list" class="status-board">
+                <!-- Rempli par TS -->
+            </div>
+        </main>
+
+        <!-- PHASE 2: PLANIFICATEUR D'ITINÉRAIRE -->
+        <main id="view-trajet" class="view">
+            <div class="view-header-gradient" style="padding-bottom: 50px;">
+                <button class="icon-btn" onclick="window.goBack()" style="background:none; border:none; color:white; margin-bottom: 15px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                </button>
+                <h2>Planifier un voyage</h2>
+            </div>
+
+            <div class="padding-wrapper">
+                <div class="planner-card">
+                    <div class="input-field">
+                        <div class="dot dot-green"></div>
+                        <input type="text" id="input-depart" placeholder="Point de départ" autocomplete="off" />
+                        <button onclick="window.startPicking('depart')" style="background:none; border:none; opacity: 0.5;">📍</button>
                     </div>
-                    <input type="range" id="sim-speed" min="0.1" max="10" step="0.5" value="1">
+                    <div id="suggestions-depart" class="suggestions-list-container"></div>
+
+                    <div class="input-field">
+                        <div class="dot dot-red"></div>
+                        <input type="text" id="input-dest" placeholder="Destination" autocomplete="off" />
+                        <button onclick="window.startPicking('dest')" style="background:none; border:none; opacity: 0.5;">🏁</button>
+                    </div>
+                    <div id="suggestions-dest" class="suggestions-list-container"></div>
+
+                    <div class="preference-pills">
+                        <div class="pill active" data-pref="fastest">Plus rapide</div>
+                        <div class="pill" data-pref="walk">Moins de marche</div>
+                        <div class="pill" data-pref="transfer">Moins de corresp.</div>
+                        <div class="pill" data-pref="pmr">♿ Accessible</div>
+                    </div>
+
+                    <div style="display:flex; gap:10px;">
+                        <div style="display:flex; gap:10px;">
+                        <button class="btn-action" id="btn-search-route">🚀 Voir les itinéraires</button>
+                        <button class="btn-action" style="background:#004a99; width:60px;" onclick="window.simulateTrajet('DDD')">DDD</button>
+                        <button class="btn-action" style="background:#e63946; width:60px;" onclick="window.simulateTrajet('TATA')">TATA</button>
+                    </div>
+                    </div>
                 </div>
-                
-                <h3 style="font-size: 14px; margin-bottom: 15px; font-family: 'Outfit';">Moniteur des Lignes</h3>
-                <div id="line-list"></div>
-                
-                <div style="margin-top: 20px; padding: 15px; background: #fff7ed; border-radius: 12px; border: 1px solid #ffedd5;">
-                    <p style="font-size: 12px; color: #9a3412; font-weight: 700;">⚠️ Alerte Trafic</p>
-                    <p style="font-size: 11px; color: #c2410c;">Ralentissement signalé sur l'axe VDN - Ligne 1 impactée.</p>
+
+                <div id="route-result" style="display:none; margin-top:30px;">
+                    <h3 style="font-weight: 800; margin-bottom: 15px;">Meilleures options</h3>
+                    <div id="route-suggestions-container"></div>
                 </div>
             </div>
+        </main>
+
+        <!-- PHASE 3: CARTE & TEMPS RÉEL (COUNTDOWN) -->
+        <main id="view-carte" class="view">
             <div id="map"></div>
-        </div>
-
-        <!-- View: Dashboard -->
-        <div id="dashboard-view" class="view-container">
-            <div class="card"><h3>Passagers / Jour</h3><p>145,200</p><div class="trend">↑ 12% vs hier</div></div>
-            <div class="card"><h3>Revenue (CFA)</h3><p>2.4M</p><div class="trend">↑ 5% ce jour</div></div>
-            <div class="card"><h3>Taux de Ponctualité</h3><p>94.2%</p><div class="trend">Stable</div></div>
-            <div class="card"><h3>Bus en Maintenance</h3><p>8</p><div class="trend" style="color:#ef4444">3 critiques</div></div>
-            <div class="card" style="grid-column: span 2;">
-                <h3>Affluence par Arrêt</h3>
-                <div style="height: 150px; background: #f9fafb; margin-top: 10px; border-radius: 8px; display: flex; align-items: flex-end; gap: 10px; padding: 20px;">
-                    <div style="flex:1; background:var(--primary); height: 40%;"></div>
-                    <div style="flex:1; background:var(--primary); height: 80%;"></div>
-                    <div style="flex:1; background:var(--primary); height: 60%;"></div>
-                    <div style="flex:1; background:var(--primary); height: 95%;"></div>
+            
+            <div class="map-overlay-top">
+                <div class="search-bar-glass">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input type="text" placeholder="Ligne ou arrêt..." id="search-map-input" />
+                </div>
+                <div class="preference-pills" style="padding: 0;">
+                    <div class="pill active" data-filter="Tous">Tous</div>
+                    <div class="pill" data-filter="DDD">DDD</div>
+                    <div class="pill" data-filter="TATA">TATA</div>
                 </div>
             </div>
-        </div>
 
-        <!-- View: Fleet View -->
-        <div id="fleet-view" class="view-container" style="padding: 30px;">
-            <div class="card" style="width: 100%;">
-                <h3>Inventaire du Parc Roulant</h3>
-                <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-                    <thead><tr style="text-align: left; font-size: 12px; color: var(--text-muted);"><th>ID BUS</th><th>LIGNE</th><th>ETAT</th><th>BATTERIE/FUEL</th><th>DERNIER ARRET</th></tr></thead>
-                    <tbody style="font-size: 13px;">
-                        <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 15px 0;">DDD-042</td><td>L1</td><td><span style="color:#10b981">● EN SERVICE</span></td><td>85%</td><td>Leclerc</td></tr>
-                        <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 15px 0;">DDD-115</td><td>L7</td><td><span style="color:#10b981">● EN SERVICE</span></td><td>42%</td><td>Ouakam</td></tr>
-                        <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 15px 0;">DDD-203</td><td>L8</td><td><span style="color:#f59e0b">● RETARDÉ</span></td><td>15%</td><td>Patte d'Oie</td></tr>
-                    </tbody>
-                </table>
+            <div class="map-overlay-bottom">
+                <button class="btn-recenter" id="btn-recenter" onclick="window.recenterMap()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3m0 14v3m10-10h-3M5 12H2"></path></svg>
+                </button>
+                <div id="station-info-sheet" class="planner-card" style="display:none; margin-top: 0;">
+                    <!-- Rempli par TS quand on clique sur un arrêt -->
+                </div>
             </div>
-        </div>
+        </main>
 
-        <!-- View: Tickets -->
-        <div id="tickets-view" class="view-container" style="padding: 30px; flex-direction: row; gap: 20px;">
-            <div class="card" style="flex: 1;">
-                <h3>Interface Client Mobile (Aperçu)</h3>
-                <div style="width: 280px; height: 500px; border: 8px solid #374151; border-radius: 30px; margin: 20px auto; background: white; padding: 20px; overflow-y: auto;">
-                    <p style="font-weight: 800; font-family: 'Outfit'; margin-bottom: 20px;">SunuBus DDD</p>
-                    <div style="background: #f3f4f6; padding: 15px; border-radius: 12px; font-size: 12px;">🔍 Où allez-vous ?</div>
-                    <div class="qr-mock">📷<br>Scan QR Code<br>pour payer</div>
-                    <p style="font-size: 12px; font-weight: 700; margin-top: 20px;">Lignes favorites</p>
-                    <div style="margin-top:10px; display:flex; gap:10px;">
-                        <div style="width:40px; height:40px; border-radius:10px; background:#fee2e2; border:1px solid #f87171; display:flex; align-items:center; justify-content:center; font-weight:900; color:#d90429;">1</div>
-                        <div style="width:40px; height:40px; border-radius:10px; background:#e0f2fe; border:1px solid #38bdf8; display:flex; align-items:center; justify-content:center; font-weight:900; color:#0369a1;">4</div>
+        <!-- PHASE 4: BILLETTIQUE (WAVE / ORANGE MONEY) -->
+        <main id="view-billet" class="view">
+            <div class="view-header">
+                <button class="icon-btn" onclick="window.goBack()" style="background:none; border:none; color:var(--dark); margin-right: 15px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                </button>
+                <h1>Mes Titres</h1>
+            </div>
+
+            <div class="ticket-pass">
+                <div class="pass-header">
+                    <div>
+                        <div class="pass-balance-label">Pass SunuBus</div>
+                        <div class="pass-balance">4 500 FCFA</div>
+                    </div>
+                    <div class="qr-placeholder">
+                        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2m10 0h2a2 2 0 0 1 2 2v2m0 10v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"></path><rect x="7" y="7" width="3" height="3"></rect><rect x="14" y="7" width="3" height="3"></rect><rect x="7" y="14" width="3" height="3"></rect><rect x="14" y="14" width="3" height="3"></rect></svg>
+                    </div>
+                </div>
+                <div style="font-size: 12px; font-weight: 700; opacity: 0.9;">VALIDE JUSQU'AU 30/04/2026</div>
+            </div>
+
+            <div class="section-title">Recharger mon Pass</div>
+            <div class="payment-methods">
+                <button class="pay-btn pay-wave" onclick="alert('Lien vers Wave...')">Wave</button>
+                <button class="pay-btn pay-orange" onclick="alert('Lien vers Orange Money...')">Orange Money</button>
+            </div>
+
+            <div class="section-title">Historique</div>
+            <div class="padding-wrapper">
+                <div class="status-card">
+                    <div class="line-badge-lg" style="background: var(--primary);">27</div>
+                    <div class="status-info">
+                        <div class="line-name">Trajet Plateau ↔ Pikine</div>
+                        <div style="font-size: 12px; color: #8e8e93;">Aujourd'hui, 08:12 • -500 FCFA</div>
                     </div>
                 </div>
             </div>
-        </div>
+        </main>
+
+        <!-- NAVIGATION BASSE -->
+        <nav class="bottom-nav">
+            <div class="nav-item active" data-target="accueil" onclick="window.switchView('accueil')">
+                <div class="nav-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></div>
+                <span>Accueil</span>
+            </div>
+            <div class="nav-item" data-target="carte" onclick="window.switchView('carte')">
+                <div class="nav-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="1 6 1 22 8 18 15 22 23 18 23 2 15 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="15" y1="6" x2="15" y2="22"></line></svg></div>
+                <span>Réseau</span>
+            </div>
+            <div class="nav-item" data-target="trajet" onclick="window.switchView('trajet')">
+                <div class="nav-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 22l10-3 10 3L12 2z"></path></svg></div>
+                <span>Trajet</span>
+            </div>
+            <div class="nav-item" data-target="billet" onclick="window.switchView('billet')">
+                <div class="nav-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg></div>
+                <span>Billet</span>
+            </div>
+        </nav>
     </div>
-
+    
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        // --- DATA & SIMULATION LOGIC ---
-        const STOPS = {
-            PARCELLES: [-17.4400, 14.7600], LECLERC: [-17.4339, 14.6683], LIBERTE_5: [-17.4450, 14.7150],
-            OUAKAM: [-17.4880, 14.7210], PALAIS_1: [-17.4320, 14.6650], PALAIS_2: [-17.4330, 14.6640], 
-            AEROPORT: [-17.4800, 14.7400], KEUR_MASSAR: [-17.3000, 14.7800], RUFISQUE: [-17.2700, 14.7100], 
-            YENNE: [-17.1500, 14.6500], GUEDIAWAYE: [-17.3900, 14.7800], THIAROYE: [-17.3700, 14.7400], 
-            ALMADIES: [-17.5100, 14.7500], INDEPENDANCE: [-17.4360, 14.6690], LAT_DIOR: [-17.4380, 14.6750],
-            SANDAGA: [-17.4380, 14.6720], CASTORS: [-17.4300, 14.7100], MAMELLES: [-17.4900, 14.7200],
-            NGOR: [-17.4900, 14.7500], UCAD: [-17.4600, 14.6900], FANN: [-17.4650, 14.6880],
-            DIEUPPEUL: [-17.4500, 14.7100], LIBERTE_6: [-17.4400, 14.7200], JET_EAU: [-17.4420, 14.7050],
-            DIOR: [-17.4350, 14.7550], SCAT_URBAM: [-17.4300, 14.7400], PATTE_OIE: [-17.4200, 14.7300],
-            STADE_LSS: [-17.4100, 14.7400], CAMBARENE_2: [-17.4100, 14.7600], DAROUKHANE: [-17.3800, 14.7900],
-            PIKINE: [-17.4000, 14.7500], BAUX_MARAICHERS: [-17.4000, 14.7300], GADAYE: [-17.3700, 14.7800],
-            MALIKA: [-17.3300, 14.8000], BARGNY: [-17.2300, 14.7000], DIAMNIADIO: [-17.1500, 14.7000],
-            JAXAAY: [-17.2800, 14.7500], BAYAKH: [-17.2000, 14.7900], SANGALKAM: [-17.2300, 14.7500]
-        };
-
-        const LINES = [
-            { id: "1", name: "Parcelles ↔ Leclerc", color: "#d90429", points: [STOPS.PARCELLES, STOPS.DIOR, STOPS.STADE_LSS, STOPS.PATTE_OIE, STOPS.UCAD, STOPS.SANDAGA, STOPS.LECLERC] },
-            { id: "4", name: "Liberté 5 ↔ Leclerc", color: "#38bdf8", points: [STOPS.LIBERTE_5, STOPS.DIEUPPEUL, STOPS.JET_EAU, STOPS.UCAD, STOPS.SANDAGA, STOPS.LECLERC] },
-            { id: "7", name: "Ouakam ↔ Palais 2", color: "#10b981", points: [STOPS.OUAKAM, STOPS.MAMELLES, STOPS.UCAD, STOPS.SANDAGA, STOPS.PALAIS_2] },
-            { id: "8", name: "Aéroport ↔ Palais 2", color: "#f59e0b", points: [STOPS.AEROPORT, STOPS.NGOR, STOPS.STADE_LSS, STOPS.UCAD, STOPS.PALAIS_2] },
-            { id: "11", name: "Keur Massar ↔ Lat Dior", color: "#ef233c", points: [STOPS.KEUR_MASSAR, STOPS.THIAROYE, STOPS.PIKINE, STOPS.LAT_DIOR] },
-            { id: "15", name: "Rufisque ↔ Palais 1", color: "#0ea5e9", points: [STOPS.RUFISQUE, STOPS.JAXAAY, STOPS.THIAROYE, STOPS.PALAIS_1] }
-        ];
-
-        let map, buses = [], simulationSpeed = 1;
-
-        class OperationalBus {
-            constructor(line, roadPoints, offset) {
-                this.line = line; this.pts = roadPoints; this.idx = offset; this.prog = 0; this.dir = 1;
-                this.speed = (0.005 + Math.random() * 0.01);
-                const icon = L.divIcon({
-                    className: '',
-                    html: `<div class="bus-unit"><div class="bus-circle" style="background:${line.color}">${line.id}</div></div>`,
-                    iconSize: [30, 30], iconAnchor: [15, 15]
-                });
-                this.marker = L.marker(this.pts[this.idx], { icon }).addTo(map);
-                this.marker.on('click', () => {
-                   this.marker.bindPopup(`<b>Unité ${this.line.id}</b><br>${this.line.name}<br><small>Statut: OK</small>`).openPopup();
-                });
-            }
-            update() {
-                this.prog += this.speed * simulationSpeed;
-                if (this.prog >= 1) { 
-                    this.prog = 0; this.idx += this.dir; 
-                    if (this.idx >= this.pts.length - 1 || this.idx <= 0) this.dir *= -1; 
-                }
-                const p1 = this.pts[this.idx], p2 = this.pts[this.idx + this.dir];
-                if (p1 && p2) this.marker.setLatLng([p1[0] + (p2[0]-p1[0])*this.prog, p1[1] + (p2[1]-p1[1])*this.prog]);
-            }
-        }
-
-        async function fetchRoad(points) {
-            const coords = points.map(p => `${p[0]},${p[1]}`).join(';');
-            try {
-                const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`);
-                const d = await res.json();
-                return d.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-            } catch (e) { return points.map(p => [p[1], p[0]]); }
-        }
-
-        async function init() {
-            map = L.map('map', { zoomControl: false }).setView([14.72, -17.40], 12);
-            L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png').addTo(map);
-
-            // Add Red Pin Markers for all Stops
-            const pinIcon = L.divIcon({
-                className: '',
-                html: `<svg width="28" height="28" viewBox="0 0 24 24" fill="#d90429" stroke="white" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5" fill="white"/></svg>`,
-                iconSize: [28, 28], iconAnchor: [14, 28]
-            });
-
-            for (const key in STOPS) {
-                const coord = STOPS[key];
-                // Leaflet takes [Lat, Lng], STOPS has [Lng, Lat]
-                L.marker([coord[1], coord[0]], { icon: pinIcon })
-                    .bindPopup(`<b>Station ${key.replace('_', ' ')}</b>`)
-                    .addTo(map);
-            }
-
-            const list = document.getElementById('line-list');
-            
-            // Parallel road fetching to avoid blocking the UI
-            const roadPromises = LINES.map(async (line) => {
-                const road = await fetchRoad(line.points);
-                L.polyline(road, { color: line.color, weight: 5, opacity: 0.3 }).addTo(map);
-                for(let i=0; i<3; i++) buses.push(new OperationalBus(line, road, Math.floor((i/3)*road.length)));
-                
-                const li = document.createElement('div');
-                li.className = 'line-item';
-                li.innerHTML = `<span style="font-weight:900; color:${line.color}">${line.id}</span><span style="font-size:12px; color:var(--text-muted)">${line.name}</span>`;
-                li.onclick = () => map.fitBounds(L.polyline(road).getBounds());
-                list.appendChild(li);
-            });
-
-            animate();
-            await Promise.all(roadPromises);
-            
-            // Connect Speed Slider
-            const speedSlider = document.getElementById('sim-speed');
-            const speedInd = document.getElementById('speed-ind');
-            if(speedSlider) {
-                speedSlider.addEventListener('input', (e) => {
-                    simulationSpeed = parseFloat(e.target.value);
-                    if(speedInd) speedInd.innerText = simulationSpeed.toFixed(1) + 'x';
-                });
-            }
-        }
-
-        function animate() {
-            buses.forEach(b => b.update());
-            const now = new Date();
-            document.getElementById('clock').innerText = now.toTimeString().split(' ')[0];
-            requestAnimationFrame(animate);
-        }
-
-        function showView(viewId) {
-            document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-            document.getElementById(viewId).classList.add('active');
-            event.currentTarget.classList.add('active');
-            document.getElementById('view-title').innerText = event.currentTarget.innerText.split(' ').slice(1).join(' ');
-            if (viewId === 'map-view') { setTimeout(() => map.invalidateSize(), 100); }
-        }
-
-        // --- DRAGGABLE SIDEBAR LOGIC ---
-        const draggable = document.querySelector('.map-overlay-sidebar');
-        let isDragging = false, startX, startY;
-
-        draggable.addEventListener('mousedown', (e) => {
-            // Uniquement si on clique sur le fond ou le titre, pas sur le slider
-            if (e.target.tagName === 'INPUT') return;
-            isDragging = true;
-            startX = e.clientX - draggable.offsetLeft;
-            startY = e.clientY - draggable.offsetTop;
-            draggable.style.cursor = 'grabbing';
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            draggable.style.left = (e.clientX - startX) + 'px';
-            draggable.style.top = (e.clientY - startY) + 'px';
-        });
-
-        document.addEventListener('mouseup', () => {
-            isDragging = false;
-            draggable.style.cursor = 'grab';
-        });
-
-        window.onload = init;
-    </script>
+    <script type="module" src="./src/client.ts"></script>
 </body>
 </html>

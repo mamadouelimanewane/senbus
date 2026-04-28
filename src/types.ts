@@ -70,6 +70,7 @@ export type PlannerSegment = {
 
 export type PlannerJourney = {
   totalDurationMin: number
+  totalDistanceMeters?: number
   transferStop?: Stop
   segments: PlannerSegment[]
 }

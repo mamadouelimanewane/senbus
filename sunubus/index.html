@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0F6E56" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="SunuBus" />
+  <title>SunuBus — Voyageur</title>
+  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- ===== SPLASH SCREEN ===== -->
+    <div id="splash" class="splash">
+      <div class="splash-logo">
+        <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
+          <rect width="72" height="72" rx="18" fill="#0F6E56"/>
+          <path d="M14 46 L14 30 Q14 22 22 22 L50 22 Q58 22 58 30 L58 46 Q58 50 54 50 L52 50 L52 54 Q52 56 50 56 L46 56 Q44 56 44 54 L44 50 L28 50 L28 54 Q28 56 26 56 L22 56 Q20 56 20 54 L20 50 L18 50 Q14 50 14 46Z" fill="white"/>
+          <rect x="20" y="28" width="32" height="14" rx="3" fill="#0F6E56"/>
+          <circle cx="24" cy="48" r="3" fill="#0F6E56"/>
+          <circle cx="48" cy="48" r="3" fill="#0F6E56"/>
+          <rect x="22" y="25" width="8" height="2" rx="1" fill="white" opacity="0.5"/>
+          <rect x="42" y="25" width="8" height="2" rx="1" fill="white" opacity="0.5"/>
+        </svg>
+      </div>
+      <h1 class="splash-title">SunuBus</h1>
+      <p class="splash-sub">Dakar · Dem Dikk · TATA</p>
+      <div class="splash-loader">
+        <div class="splash-bar"></div>
+      </div>
+    </div>
+
+    <!-- ===== VUE CARTE ===== -->
+    <main id="view-carte" class="view active">
+      <div id="map"></div>
+
+      <!-- Top bar -->
+      <div class="map-topbar">
+        <div class="map-topbar-left">
+          <button class="icon-btn" id="btn-menu" aria-label="Menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <span class="topbar-brand">SunuBus</span>
+        </div>
+        <div class="map-topbar-right">
+          <button class="icon-btn" id="btn-locate" aria-label="Ma position">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="9" stroke-dasharray="2 3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Filtre opérateurs -->
+      <div class="map-filters">
+        <button class="filter-btn active" data-filter="all">Tous</button>
+        <button class="filter-btn" data-filter="ddd">
+          <span class="filter-dot ddd"></span>DDD
+        </button>
+        <button class="filter-btn" data-filter="tata">
+          <span class="filter-dot tata"></span>TATA
+        </button>
+      </div>
+
+      <!-- Badge réseau -->
+      <div class="map-badge" id="map-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
+        <span id="badge-text">Chargement…</span>
+      </div>
+
+      <!-- FAB trajet -->
+      <div class="map-fab-row">
+        <button class="fab-btn fab-secondary" onclick="switchView('chercher')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Chercher
+        </button>
+        <button class="fab-btn fab-primary" onclick="switchView('trajet')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 22l10-3 10 3L12 2z"/></svg>
+          Itinéraire
+        </button>
+      </div>
+
+      <!-- Panneau ligne sélectionnée -->
+      <div id="line-panel" class="bottom-sheet hidden">
+        <div class="sheet-handle"></div>
+        <div id="line-panel-content"></div>
+      </div>
+    </main>
+
+    <!-- ===== VUE TRAJET ===== -->
+    <main id="view-trajet" class="view">
+      <div class="view-header">
+        <button class="back-btn" onclick="switchView('carte')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+        </button>
+        <h2>Planifier un trajet</h2>
+      </div>
+      <div class="view-body">
+        <div class="trajet-card">
+          <div class="trajet-field">
+            <div class="dot dot-green"></div>
+            <input type="text" id="input-depart" placeholder="D'où partez-vous ?" autocomplete="off" />
+            <button class="map-pick-btn" data-target="depart" title="Choisir sur la carte">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </button>
+          </div>
+          <div class="trajet-field border-top">
+            <div class="dot dot-red"></div>
+            <input type="text" id="input-dest" placeholder="Où allez-vous ?" autocomplete="off" />
+            <button class="map-pick-btn" data-target="dest" title="Choisir sur la carte">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </button>
+          </div>
+          <button class="btn-primary btn-full" id="btn-search-route">
+            Rechercher un trajet
+          </button>
+        </div>
+
+        <!-- Suggestions d'arrêts -->
+        <div id="stop-suggestions" class="suggestions-list hidden"></div>
+
+        <!-- Résultats -->
+        <div id="route-results" class="hidden">
+          <h3 class="results-title">Itinéraires suggérés</h3>
+          <div id="route-cards"></div>
+        </div>
+
+        <!-- Navigation active -->
+        <div id="nav-active" class="nav-active-panel hidden">
+          <div class="nav-header">
+            <div class="nav-eta">
+              <span id="nav-duration" class="eta-main">--</span>
+              <span id="nav-arrival" class="eta-sub">--</span>
+            </div>
+            <button class="btn-danger-sm" id="btn-stop-nav">Arrêter</button>
+          </div>
+          <div id="nav-steps" class="nav-steps"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ===== VUE LIGNES ===== -->
+    <main id="view-lignes" class="view">
+      <div class="view-header">
+        <h2>Réseau de transport</h2>
+        <span class="header-badge" id="lines-count-badge">--</span>
+      </div>
+      <div class="view-body">
+        <div class="filter-row">
+          <button class="filter-btn active" data-lines-filter="all">Toutes</button>
+          <button class="filter-btn" data-lines-filter="ddd"><span class="filter-dot ddd"></span>DDD</button>
+          <button class="filter-btn" data-lines-filter="tata"><span class="filter-dot tata"></span>TATA</button>
+        </div>
+        <button class="btn-outline btn-full" style="margin-bottom:12px" onclick="switchView('carte')">
+          Voir sur la carte
+        </button>
+        <div id="lines-list" class="lines-list"></div>
+      </div>
+    </main>
+
+    <!-- ===== VUE CHERCHER ===== -->
+    <main id="view-chercher" class="view">
+      <div class="view-header">
+        <h2>Explorer le réseau</h2>
+      </div>
+      <div class="view-body">
+        <div class="search-bar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="search-input" placeholder="Ligne, arrêt, quartier…" />
+          <button class="search-clear hidden" id="btn-clear-search">✕</button>
+        </div>
+
+        <!-- Arrêts proches -->
+        <div id="nearby-section">
+          <h3 class="section-title">Arrêts proches</h3>
+          <div id="nearby-stops" class="stops-list">
+            <div class="loading-row">Détection de la position…</div>
+          </div>
+        </div>
+
+        <!-- Résultats recherche -->
+        <div id="search-results" class="hidden">
+          <h3 class="section-title" id="search-results-title">Résultats</h3>
+          <div id="search-list" class="lines-list"></div>
+        </div>
+
+        <!-- Favoris -->
+        <div id="favorites-section">
+          <h3 class="section-title">Favoris</h3>
+          <div id="favorites-list" class="stops-list">
+            <div class="empty-state">Aucun favori pour l'instant.<br>Étoilez une ligne ou un arrêt.</div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ===== VUE PROFIL ===== -->
+    <main id="view-profil" class="view">
+      <div class="view-header">
+        <h2>Mon profil</h2>
+      </div>
+      <div class="view-body">
+        <div class="profil-avatar-row">
+          <div class="profil-avatar">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div>
+            <div class="profil-name" id="profil-name">Voyageur</div>
+            <div class="profil-sub">Mode invité — pas de compte</div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">Préférences de trajet</div>
+          <div class="settings-group">
+            <label class="radio-item">
+              <input type="radio" name="pref-trajet" value="rapide" checked /> Plus rapide
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="pref-trajet" value="marche" /> Moins de marche
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="pref-trajet" value="correspondances" /> Moins de correspondances
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">Notifications</div>
+          <div class="settings-group">
+            <label class="toggle-item">
+              <span>Retards lignes favorites</span>
+              <div class="toggle-track">
+                <input type="checkbox" id="notif-retards" checked />
+                <span class="toggle-thumb"></span>
+              </div>
+            </label>
+            <label class="toggle-item">
+              <span>Alerte descente prochaine</span>
+              <div class="toggle-track">
+                <input type="checkbox" id="notif-descente" checked />
+                <span class="toggle-thumb"></span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">Langue</div>
+          <div class="settings-group">
+            <label class="radio-item">
+              <input type="radio" name="lang" value="fr" checked /> Français
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="lang" value="wo" /> Wolof (bientôt)
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">À propos</div>
+          <div class="about-card">
+            <div class="about-row"><span>Version</span><span>5.0.0</span></div>
+            <div class="about-row"><span>Réseau</span><span>100 lignes DDD + TATA</span></div>
+            <div class="about-row"><span>Données</span><span>LocationIQ / CETUD</span></div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <button class="btn-outline btn-full" id="btn-clear-cache">Vider le cache</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- ===== BOTTOM NAV ===== -->
+    <nav class="bottom-nav" id="bottom-nav">
+      <button class="nav-item active" data-target="carte" onclick="switchView('carte')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/></svg>
+        <span>Carte</span>
+      </button>
+      <button class="nav-item" data-target="trajet" onclick="switchView('trajet')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="2"/><path d="M12 7v8"/><circle cx="12" cy="17" r="2"/><path d="M8 10h8M8 14h8"/></svg>
+        <span>Trajet</span>
+      </button>
+      <button class="nav-item" data-target="lignes" onclick="switchView('lignes')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+        <span>Lignes</span>
+      </button>
+      <button class="nav-item" data-target="chercher" onclick="switchView('chercher')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span>Chercher</span>
+      </button>
+      <button class="nav-item" data-target="profil" onclick="switchView('profil')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>Profil</span>
+      </button>
+    </nav>
+
+    <!-- ===== TOAST ===== -->
+    <div id="toast" class="toast hidden"></div>
+
+  </div><!-- #app -->
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

@@ -44,22 +44,17 @@ export function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: nu
 }
 
 function isWaterPoint(lat: number, lon: number): boolean {
-  // 1. Dakar Bounding Box check (Zéro-Mer strict)
-  if (lat < 14.65 || lat > 14.85 || lon < -17.55 || lon > -17.25) return true
+  // Bbox large couvrant TOUT le réseau DDD (Almadies → Sébikotane, Yenne → banlieue nord)
+  // lat : 14.55 (Yenne) → 14.93 (cambrene/nord)
+  // lon : -17.58 (Almadies) → -17.10 (Sébikotane/Diamniadio)
+  if (lat < 14.55 || lat > 14.93 || lon < -17.58 || lon > -17.10) return true
 
-  // 2. Zone du port et mer Est Plateau
-  const isPortArea = lat < 14.71 && lon > -17.428
-  // 3. Zone mer Nord (au dessus de la côte de Guédiawaye/Yoff)
-  const isNorthSea = lat > 14.785 && lon > -17.47
-  // 4. Zone mer Sud (au dessous du plateau)
-  const isSouthSea = lat < 14.66 && lon < -17.41
+  // Mer au large du Cap-Vert (triangle de mer à l'ouest du réseau routier)
+  // Seulement les zones clairement en mer, pas les zones ambiguës
+  const isOpenSea = lon < -17.56 && lat > 14.72  // mer ouverte nord-ouest
+  const isDeepSouth = lat < 14.62 && lon < -17.50 // mer sud-ouest (pas de routes là)
 
-  if (isPortArea || isNorthSea || isSouthSea) {
-    const nearStop = stops.some(s => {
-      const g = GPS[s.id]; return g && getDistanceKm(lat, lon, g[0], g[1]) < 0.4
-    })
-    if (!nearStop) return true
-  }
+  if (isOpenSea || isDeepSouth) return true
   return false
 }
 
@@ -81,11 +76,9 @@ function sanitizeCoords(coords: [number, number][]): [number, number][] {
   for (let i = 1; i < coords.length; i++) {
     const [lat, lon] = coords[i]
     if (isWaterPoint(lat, lon)) continue
-    
-    // Jump check (max 2km)
+    // Jump check élargi (max 5km pour couvrir les longues lignes péri-urbaines)
     const prev = result[result.length - 1]
-    if (prev && getDistanceKm(lat, lon, prev[0], prev[1]) > 2.0) continue
-    
+    if (prev && getDistanceKm(lat, lon, prev[0], prev[1]) > 5.0) continue
     result.push([lat, lon])
   }
   return result
@@ -138,32 +131,88 @@ function buildRoadGeometry(rawCoords: [number, number][], source: 'prebaked' | '
 }
 
 // ── Iron-Track Flow (Zéro-Mer Certifié) ───────────────────────────────
+// Nœuds routiers clés de Dakar pour éviter les trajets en mer
+const ROAD_WAYPOINTS: Record<string, [number, number]> = {
+  autoroute_patte_oie:   [14.7229, -17.4481],
+  centre_ville_ucad:     [14.6980, -17.4320],
+  sandaga:               [14.6727, -17.4327],
+  medina_tilene:         [14.6850, -17.4490],
+  colobane:              [14.6847, -17.4518],
+  hann_maristes:         [14.7103, -17.4350],
+  pikine_carrefour:      [14.7473, -17.3867],
+  guediawaye_carrefour:  [14.7733, -17.4233],
+  thiaroye:              [14.7429, -17.3867],
+}
+
+function routeSegmentViaRoads(c1: [number, number], c2: [number, number]): [number, number][] {
+  const points: [number, number][] = [c1]
+  // Détection mer : si départ à l'ouest (Almadies/Ouakam) et arrivée banlieue
+  const isWestCoast = (c: [number, number]) => c[1] < -17.46
+  const isBanlieue  = (c: [number, number]) => c[1] > -17.40
+  const isFarEast   = (c: [number, number]) => c[1] > -17.35
+  const isSouth     = (c: [number, number]) => c[0] < 14.67
+
+  // Éviter la mer : Ouakam/Almadies → centre → banlieue
+  if (isWestCoast(c1) && (isBanlieue(c2) || isFarEast(c2))) {
+    points.push(ROAD_WAYPOINTS.centre_ville_ucad, ROAD_WAYPOINTS.autoroute_patte_oie)
+  } else if (isBanlieue(c1) && isWestCoast(c2)) {
+    points.push(ROAD_WAYPOINTS.autoroute_patte_oie, ROAD_WAYPOINTS.centre_ville_ucad)
+  }
+  // Éviter la mer en bas (Plateau/mer) → passer par Medina
+  if (isSouth(c1) || isSouth(c2)) {
+    points.push(ROAD_WAYPOINTS.sandaga)
+  }
+  // Transit Est-Ouest via autoroute
+  const isEastSide = (c: [number, number]) => c[1] > -17.42
+  const isWestSide = (c: [number, number]) => c[1] < -17.44
+  if ((isEastSide(c1) && isWestSide(c2)) || (isWestSide(c1) && isEastSide(c2))) {
+    if (isEastSide(c1)) {
+      points.push(ROAD_WAYPOINTS.autoroute_patte_oie, ROAD_WAYPOINTS.centre_ville_ucad)
+    } else {
+      points.push(ROAD_WAYPOINTS.centre_ville_ucad, ROAD_WAYPOINTS.autoroute_patte_oie)
+    }
+  }
+  points.push(c2)
+  return points
+}
+
 function ironTrackFallback(stopIds: string[]): [number, number][] {
   const result: [number, number][] = []
   for (let i = 0; i < stopIds.length - 1; i++) {
     const c1 = GPS[stopIds[i]], c2 = GPS[stopIds[i + 1]]
     if (!c1 || !c2) continue
-    if (i === 0) result.push(c1)
-    const isEast = (c: [number, number]) => c[1] > -17.405
-    const isWest = (c: [number, number]) => c[1] < -17.425
-    if ((isEast(c1) && isWest(c2)) || (isWest(c1) && isEast(c2))) {
-      if (isEast(c1)) {
-        result.push([14.7229, -17.4481], [14.7050, -17.4320], [14.6850, -17.4290])
-      } else {
-        result.push([14.6850, -17.4290], [14.7050, -17.4320], [14.7229, -17.4481])
-      }
-    }
-    result.push(c2)
+    const segment = routeSegmentViaRoads(c1, c2)
+    if (i === 0) result.push(...segment)
+    else result.push(...segment.slice(1))
   }
   return result.filter((c, i) => i === 0 || (c[0] !== result[i - 1][0] || c[1] !== result[i - 1][1]))
 }
 
 // ── API principale ────────────────────────────────────────────────────────
 
+/**
+ * Normalise un ID de ligne pour correspondre aux clés de ROUTE_GEOMETRIES.
+ * Exemples : 'ddd-1' → 'DDD-1', 'aftu-tata-5' → 'AFTU-TATA-5'
+ */
+function normalizeLineKey(lineId: string): string {
+  // Format ddd-N → DDD-N
+  const dddMatch = lineId.match(/^ddd-(.+)$/i)
+  if (dddMatch) return `DDD-${dddMatch[1].toUpperCase()}`
+  // Format aftu-tata-N → AFTU-TATA-N
+  const aftuMatch = lineId.match(/^aftu-tata-(.+)$/i)
+  if (aftuMatch) return `AFTU-TATA-${aftuMatch[1].toUpperCase()}`
+  // Fallback: uppercase
+  return lineId.toUpperCase()
+}
+
 export function getLineRoadGeometry(lineId: string, stopIds: string[]): RoadGeometry {
   const cacheKey = `line_${lineId}`
   if (roadCache.has(cacheKey)) return roadCache.get(cacheKey)!
-  const prebaked = ROUTE_GEOMETRIES[lineId]
+
+  // Cherche avec la clé normalisée puis avec la clé brute
+  const normalizedKey = normalizeLineKey(lineId)
+  const prebaked = ROUTE_GEOMETRIES[normalizedKey] ?? ROUTE_GEOMETRIES[lineId]
+
   let coords: [number, number][]
   let source: 'prebaked' | 'iron-track'
   if (prebaked && prebaked.geometry.length > 0) {

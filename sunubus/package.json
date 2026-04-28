@@ -1,0 +1,32 @@
+{
+  "name": "sunubus-voyageur",
+  "private": true,
+  "version": "5.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "server": "node server/index.js",
+    "cap:sync": "npx cap sync",
+    "cap:android": "npx cap open android",
+    "apk:debug": "cd android && ./gradlew assembleDebug",
+    "apk:release": "cd android && ./gradlew assembleRelease"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.0",
+    "@capacitor/core": "^6.1.0",
+    "@capacitor/geolocation": "^6.0.1",
+    "@capacitor/push-notifications": "^6.0.1",
+    "@capacitor/camera": "^6.0.2",
+    "@capacitor/haptics": "^6.0.1",
+    "@capacitor/status-bar": "^6.0.1",
+    "leaflet": "^1.9.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.0",
+    "@types/leaflet": "^1.9.14",
+    "typescript": "^5.4.5",
+    "vite": "^5.3.1"
+  }
+}
