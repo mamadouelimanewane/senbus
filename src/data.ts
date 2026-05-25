@@ -36,7 +36,7 @@ export const STOPS: Record<string, Stop> = {
   PIKINE: { name: "Pikine", coords: [14.7600, -17.3900] },
   POINT_E: { name: "Point E", coords: [14.6950, -17.4520] },
   LAT_DIOR: { name: "Lat Dior", coords: [14.6730, -17.4420] },
-  ALMADIES: { name: "Almadies", coords: [14.7450, -17.5150] },
+  ALMADIES: { name: "Almadies", coords: [14.7380, -17.5020] },
   MBAO: { name: "Mbao", coords: [14.7480, -17.3200] },
   CAMBERENE: { name: "Cambérène", coords: [14.7600, -17.4100] },
   SANGALKAM: { name: "Sangalkam", coords: [14.7800, -17.2200] },
@@ -45,7 +45,7 @@ export const STOPS: Record<string, Stop> = {
   DIAMNIADIO: { name: "Diamniadio", coords: [14.7100, -17.1800] },
   YEUMBEUL: { name: "Yeumbeul", coords: [14.7700, -17.3500] },
   GRAND_YOFF: { name: "Grand Yoff", coords: [14.7300, -17.4400] },
-  NGOR: { name: "Ngor", coords: [14.7500, -17.5100] }
+  NGOR: { name: "Ngor", coords: [14.7460, -17.4980] }
 };
 
 export const BUS_LINES: BusLine[] = [
