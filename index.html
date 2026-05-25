@@ -138,8 +138,8 @@
 
             <div class="section-title">Recharger mon Pass</div>
             <div class="payment-methods">
-                <button class="pay-btn pay-wave" onclick="alert('Lien vers Wave...')">Wave</button>
-                <button class="pay-btn pay-orange" onclick="alert('Lien vers Orange Money...')">Orange Money</button>
+                <button class="pay-btn pay-wave" onclick="(function(){const amt=document.getElementById('ticket-amount')?.textContent?.replace(/[^0-9]/g,'')||'300';const url='https://wave.com/send?currency=XOF&amount='+amt+'&note=SunuBus';window.open(url,'_blank');showToast('Ouverture Wave...','info');})();">Wave</button>
+                <button class="pay-btn pay-orange" onclick="(function(){const amt=document.getElementById('ticket-amount')?.textContent?.replace(/[^0-9]/g,'')||'300';window.open('https://orangemoney.sn/?amount='+amt,'_blank');showToast('Ouverture Orange Money...','info');})();">Orange Money</button>
             </div>
 
             <div class="section-title">Historique</div>
@@ -177,5 +177,15 @@
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module" src="./src/client.ts"></script>
+<script>
+function showToast(msg, type) {
+    const bg = type==='error'?'#e63946':type==='success'?'#2dc653':'#1565C0';
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:'+bg+';color:#fff;padding:12px 22px;border-radius:50px;font-size:14px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.3);max-width:90vw;text-align:center;';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(()=>t.remove(), 3000);
+}
+</script>
 </body>
 </html>
