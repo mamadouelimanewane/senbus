@@ -1,6 +1,103 @@
 import { lines } from './data/network'
 import './style_driver.css'
 
+// ── GPS Conducteur temps réel ────────────────────────────────────────────────
+let driverGpsPos: [number, number] | null = null;
+let driverSessionStart: Date | null = null;
+let passengerCount = 0;
+let totalRevenue = 0;
+let isPaused = false;
+let pauseTimer: ReturnType<typeof setInterval> | null = null;
+let pauseRemaining = 0;
+
+function startDriverGPS() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.watchPosition(
+        (pos) => {
+            driverGpsPos = [pos.coords.latitude, pos.coords.longitude];
+            const el = document.getElementById('driver-gps-badge');
+            if (el) el.textContent = '📍 GPS actif';
+        },
+        () => {
+            const el = document.getElementById('driver-gps-badge');
+            if (el) el.textContent = '📍 GPS inactif';
+        },
+        { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+    );
+}
+
+// ── Stats conducteur ────────────────────────────────────────────────────────
+function updateDriverStats() {
+    const revenueEl = document.getElementById('driver-revenue');
+    const paxEl = document.getElementById('driver-pax');
+    const timeEl = document.getElementById('driver-time');
+    if (revenueEl) revenueEl.textContent = totalRevenue.toLocaleString('fr-FR') + ' FCFA';
+    if (paxEl) paxEl.textContent = String(passengerCount);
+    if (driverSessionStart && timeEl) {
+        const mins = Math.floor((Date.now() - driverSessionStart.getTime()) / 60000);
+        timeEl.textContent = `${Math.floor(mins/60)}h${(mins%60).toString().padStart(2,'0')}`;
+    }
+}
+
+// ── Validation billet QR ────────────────────────────────────────────────────
+(window as any).validateTicketQR = (ticketData: string) => {
+    try {
+        const ticket = JSON.parse(atob(ticketData));
+        const now = Date.now();
+        const isValid = ticket.lineId === selectedLineId && (now - ticket.ts) < 3600000;
+        const fare = ticket.fare || 300;
+        if (isValid) {
+            passengerCount++;
+            totalRevenue += fare;
+            updateDriverStats();
+            showDriverToast(`✅ Billet valide — ${fare} FCFA`, 'success');
+        } else {
+            showDriverToast('❌ Billet invalide ou expiré', 'error');
+        }
+    } catch {
+        showDriverToast('❌ QR Code illisible', 'error');
+    }
+};
+
+// ── Mode pause ───────────────────────────────────────────────────────────────
+(window as any).togglePause = (minutes = 15) => {
+    isPaused = !isPaused;
+    if (isPaused) {
+        pauseRemaining = minutes * 60;
+        if (pauseTimer) clearInterval(pauseTimer);
+        pauseTimer = setInterval(() => {
+            pauseRemaining--;
+            const el = document.getElementById('driver-pause-timer');
+            if (el) el.textContent = `Reprise dans ${Math.floor(pauseRemaining/60)}:${(pauseRemaining%60).toString().padStart(2,'0')}`;
+            if (pauseRemaining <= 0) {
+                isPaused = false;
+                clearInterval(pauseTimer!);
+                showDriverToast('▶️ Service repris automatiquement', 'success');
+            }
+        }, 1000);
+        showDriverToast(`☕ Pause ${minutes} min programmée`, 'info');
+    } else {
+        if (pauseTimer) clearInterval(pauseTimer);
+        showDriverToast('▶️ Service repris', 'success');
+    }
+};
+
+function showDriverToast(msg: string, type: 'info'|'success'|'error' = 'info') {
+    const bg = type==='error'?'#e63946':type==='success'?'#2dc653':'#1565C0';
+    const t = document.createElement('div');
+    t.style.cssText = `position:fixed;top:20px;left:50%;transform:translateX(-50%);background:${bg};color:#fff;padding:10px 20px;border-radius:40px;font-size:14px;font-weight:600;z-index:9999;`;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+}
+
+// Démarrer GPS au chargement
+document.addEventListener('DOMContentLoaded', () => {
+    startDriverGPS();
+    setInterval(updateDriverStats, 10000);
+});
+
+
 let selectedLineId: string | null = null
 let isDriving = false
 let isDeviated = false
