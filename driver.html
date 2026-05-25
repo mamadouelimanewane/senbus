@@ -2,12 +2,83 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SunuBus CHAUFFEUR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>SunuBus — Conducteur</title>
     <link rel="stylesheet" href="./src/style_driver.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        .stats-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 16px;background:#0d1b2a;}
+        .stat-box{background:#1a2d42;border-radius:10px;padding:10px;text-align:center;}
+        .stat-val{font-size:18px;font-weight:700;color:#fff;}
+        .stat-lbl{font-size:10px;color:#94a3b8;margin-top:2px;}
+        .gps-badge{background:#1a2d42;color:#2dc653;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;display:inline-block;margin:0 16px 8px;}
+        .pause-btn{width:100%;padding:12px;background:#f59e0b;border:none;border-radius:12px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;margin:8px 0;}
+        .pause-timer{font-size:12px;color:#f59e0b;text-align:center;font-weight:600;}
+        .btn-validate{width:100%;padding:14px;background:#2dc653;border:none;border-radius:14px;color:#fff;font-weight:700;font-size:15px;cursor:pointer;margin:8px 0;}
+        #scan-result{padding:10px;border-radius:10px;text-align:center;font-weight:600;display:none;margin-top:8px;}
+    </style>
 </head>
 <body class="driver-body">
+    <!-- Stats bar -->
+    <div class="stats-bar">
+        <div class="stat-box">
+            <div class="stat-val" id="driver-revenue">0 FCFA</div>
+            <div class="stat-lbl">Recettes</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-val" id="driver-pax">0</div>
+            <div class="stat-lbl">Passagers</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-val" id="driver-time">0h00</div>
+            <div class="stat-lbl">En service</div>
+        </div>
+    </div>
+
+    <!-- GPS badge -->
+    <div id="driver-gps-badge" class="gps-badge">📍 Activation GPS...</div>
+
+    <!-- App principal -->
     <div id="driver-app"></div>
+
+    <!-- Bouton pause -->
+    <div style="padding:0 16px;">
+        <button class="pause-btn" onclick="window.togglePause(15)">☕ Pause 15 min</button>
+        <div class="pause-timer" id="driver-pause-timer"></div>
+    </div>
+
+    <!-- Validation billet simulée -->
+    <div style="padding:0 16px 16px;">
+        <button class="btn-validate" onclick="simulateScanTicket()">🎫 Scanner un billet passager</button>
+        <div id="scan-result"></div>
+    </div>
+
+    <script>
+    function simulateScanTicket() {
+        // Simuler un billet valide ou invalide (démo)
+        const isValid = Math.random() > 0.2;
+        const fare = [150, 300, 500][Math.floor(Math.random()*3)];
+        const result = document.getElementById('scan-result');
+        if (isValid) {
+            result.style.cssText = 'padding:10px;border-radius:10px;text-align:center;font-weight:600;display:block;background:#d1fae5;color:#065f46;';
+            result.textContent = '✅ Billet valide — ' + fare + ' FCFA encaissé';
+            // Mettre à jour stats
+            const rev = document.getElementById('driver-revenue');
+            const pax = document.getElementById('driver-pax');
+            if (rev && pax) {
+                const oldRev = parseInt(rev.textContent.replace(/[^0-9]/g,'')) || 0;
+                const oldPax = parseInt(pax.textContent) || 0;
+                rev.textContent = (oldRev + fare).toLocaleString('fr-FR') + ' FCFA';
+                pax.textContent = String(oldPax + 1);
+            }
+        } else {
+            result.style.cssText = 'padding:10px;border-radius:10px;text-align:center;font-weight:600;display:block;background:#fee2e2;color:#991b1b;';
+            result.textContent = '❌ Billet invalide ou expiré';
+        }
+        setTimeout(() => { result.style.display = 'none'; }, 4000);
+    }
+    </script>
+
     <script type="module" src="./src/driver.ts"></script>
 </body>
 </html>
