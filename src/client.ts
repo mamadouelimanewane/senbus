@@ -13,6 +13,19 @@ let pickingMode: 'depart' | 'dest' | null = null;
 let markersLayer = L.layerGroup();
 let routesLayer = L.layerGroup();
 let liveBusesLayer = L.layerGroup();
+
+// ── Toast non-bloquant ──────────────────────────────────────────────────────
+function showToast(msg: string, duration = 3000, type: 'info'|'success'|'error' = 'info') {
+    const existing = document.getElementById('sunubus-toast');
+    if (existing) existing.remove();
+    const bg = type === 'error' ? '#e63946' : type === 'success' ? '#2dc653' : '#1565C0';
+    const toast = document.createElement('div');
+    toast.id = 'sunubus-toast';
+    toast.style.cssText = `position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:${bg};color:#fff;padding:12px 22px;border-radius:50px;font-size:14px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.3);max-width:90vw;text-align:center;`;
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), duration);
+}
 let activeLineId: string | null = null;
 
 // --- Initialization ---
@@ -31,6 +44,15 @@ function initApp() {
 
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         document.getElementById(`view-${viewId}`)?.classList.add('active');
+    // Fix Leaflet: recalculer taille carte après affichage
+    if (viewId === 'carte' || viewId === 'reseau') {
+        setTimeout(() => {
+            if (map) {
+                map.invalidateSize(true);
+                map.setZoom(map.getZoom());
+            }
+        }, 150);
+    }
         
         document.querySelectorAll('.nav-item').forEach(v => v.classList.remove('active'));
         document.querySelector(`.nav-item[data-target="${viewId}"]`)?.classList.add('active');
@@ -87,13 +109,33 @@ function initApp() {
     setupLiveUpdates();
     setupPredictiveSearch();
     
-    // GPS Auto-locate
+    // GPS haute précision — position actuelle
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(pos => {
             departCoords = [pos.coords.latitude, pos.coords.longitude];
             const input = document.getElementById('input-depart') as HTMLInputElement;
-            if (input) input.value = "Ma position actuelle";
-        });
+            if (input) input.value = "Ma position actuelle 📍";
+            // Trouver l'arrêt le plus proche
+            const nearest = stops.reduce((prev, curr) => {
+                const d1 = Math.hypot(curr.coords[0]-pos.coords.latitude, curr.coords[1]-pos.coords.longitude);
+                const d2 = Math.hypot(prev.coords[0]-pos.coords.latitude, prev.coords[1]-pos.coords.longitude);
+                return d1 < d2 ? curr : prev;
+            });
+            if (nearest) {
+                const suggDepart = document.getElementById('suggestions-depart');
+                if (suggDepart) {
+                    const pill = document.createElement('div');
+                    pill.style.cssText = 'padding:8px 12px;background:#e8f4fd;border-radius:8px;cursor:pointer;font-size:13px;color:#1565C0;font-weight:600;margin:4px 0;';
+                    pill.innerHTML = `📍 Arrêt le plus proche: <b>${nearest.name}</b>`;
+                    pill.onclick = () => {
+                        departCoords = nearest.coords as [number,number];
+                        if (input) input.value = nearest.name;
+                        suggDepart.innerHTML = '';
+                    };
+                    suggDepart.appendChild(pill);
+                }
+            }
+        }, () => {}, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
     }
 }
 
@@ -348,7 +390,7 @@ function calculateItinerary() {
     if (!destCoords) destCoords = resolveCoords(inputDest.value);
 
     if (!departCoords || !destCoords) {
-        alert("Emplacement non reconnu. Sélectionnez une suggestion ou utilisez la carte 🗺️.");
+        showToast("⚠️ Emplacement non reconnu — sélectionnez une suggestion ou pointez sur la carte");
         return;
     }
 
